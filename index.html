@@ -1864,44 +1864,68 @@ async function pushToGitHub() {
   syncPending = true;
   const { username, repo, pat, branch } = ghSettings;
   const b = branch || 'main';
-  const url = `https://api.github.com/repos/${username}/${repo}/contents/sl1_data.json`;
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(db, null, 2))));
+  const base = `https://api.github.com/repos/${username}/${repo}`;
+  const headers = {
+    Authorization: `token ${pat}`,
+    Accept: 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json'
+  };
+  const jsonStr = JSON.stringify(db, null, 2);
+
   try {
-    // Get current SHA if we don't have it (needed for updates)
-    if (!lastSavedSha) {
-      const check = await fetch(url, {
-        headers: { Authorization: `token ${pat}`, Accept: 'application/vnd.github.v3+json' }
-      });
-      if (check.ok) {
-        const data = await check.json();
-        lastSavedSha = data.sha;
-      }
-    }
-    const body = {
-      message: `Auto-save sl1_data.json`,
-      content,
-      branch: b,
-    };
-    if (lastSavedSha) body.sha = lastSavedSha;
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        Authorization: `token ${pat}`,
-        Accept: 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
+    // Step 1: Create a blob (supports files of any size — no 1MB limit)
+    const blobRes = await fetch(`${base}/git/blobs`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ content: jsonStr, encoding: 'utf-8' })
     });
-    if (res.ok) {
-      const result = await res.json();
-      lastSavedSha = result.content.sha;
-      setSyncStatus('saved');
-      setTimeout(() => setSyncStatus('idle'), 3000);
-    } else {
-      const err = await res.json();
-      console.error('GitHub save failed:', err);
-      setSyncStatus('error', 'Sync error — click to fix');
-    }
+    if (!blobRes.ok) throw new Error(`Blob creation failed: ${blobRes.status}`);
+    const blob = await blobRes.json();
+
+    // Step 2: Get the current HEAD commit SHA for the branch
+    const refRes = await fetch(`${base}/git/ref/heads/${b}`, { headers });
+    if (!refRes.ok) throw new Error(`Ref fetch failed: ${refRes.status}`);
+    const ref = await refRes.json();
+    const latestCommitSha = ref.object.sha;
+
+    // Step 3: Get the tree SHA from that commit
+    const commitRes = await fetch(`${base}/git/commits/${latestCommitSha}`, { headers });
+    if (!commitRes.ok) throw new Error(`Commit fetch failed: ${commitRes.status}`);
+    const commit = await commitRes.json();
+    const baseTreeSha = commit.tree.sha;
+
+    // Step 4: Create a new tree with the updated file
+    const treeRes = await fetch(`${base}/git/trees`, {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: [{ path: 'sl1_data.json', mode: '100644', type: 'blob', sha: blob.sha }]
+      })
+    });
+    if (!treeRes.ok) throw new Error(`Tree creation failed: ${treeRes.status}`);
+    const tree = await treeRes.json();
+
+    // Step 5: Create a new commit
+    const newCommitRes = await fetch(`${base}/git/commits`, {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        message: 'Auto-save sl1_data.json',
+        tree: tree.sha,
+        parents: [latestCommitSha]
+      })
+    });
+    if (!newCommitRes.ok) throw new Error(`Commit creation failed: ${newCommitRes.status}`);
+    const newCommit = await newCommitRes.json();
+
+    // Step 6: Update the branch ref to point to the new commit
+    const updateRefRes = await fetch(`${base}/git/refs/heads/${b}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ sha: newCommit.sha })
+    });
+    if (!updateRefRes.ok) throw new Error(`Ref update failed: ${updateRefRes.status}`);
+
+    lastSavedSha = newCommit.sha;
+    setSyncStatus('saved');
+    setTimeout(() => setSyncStatus('idle'), 3000);
   } catch(e) {
     console.error('GitHub push error:', e);
     setSyncStatus('error', 'Sync error — click to fix');
@@ -1927,17 +1951,15 @@ async function load() {
   setSyncStatus('saving', 'Loading…');
   const { username, repo, pat, branch } = ghSettings;
   const b = branch || 'main';
-  const url = `https://api.github.com/repos/${username}/${repo}/contents/sl1_data.json`;
+  // Use raw download URL — no file size limit (Contents API base64 breaks at ~1MB)
+  const rawUrl = `https://raw.githubusercontent.com/${username}/${repo}/${b}/sl1_data.json`;
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `token ${pat}`, Accept: 'application/vnd.github.v3+json' },
+    const res = await fetch(rawUrl, {
+      headers: { Authorization: `token ${pat}` },
       cache: 'no-store'
     });
     if (res.ok) {
-      const data = await res.json();
-      lastSavedSha = data.sha;
-      const decoded = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
-      const remote = JSON.parse(decoded);
+      const remote = await res.json();
       db = remote;
       // Update localStorage cache with remote version
       try { localStorage.setItem('sl1_repo', JSON.stringify(db)); } catch(e) {}

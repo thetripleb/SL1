@@ -14,6 +14,12 @@ const CFG = window.REPO_CONFIG;
 
 // Set page title from config
 document.title = CFG.appName;
+document.addEventListener('DOMContentLoaded', function() {
+  const h1 = document.querySelector('.header-brand h1');
+  const subtitle = document.querySelector('.header-brand .subtitle');
+  if (h1) h1.textContent = CFG.appName;
+  if (subtitle) subtitle.textContent = CFG.course;
+});
 
 
 // ============================================================
@@ -61,7 +67,7 @@ function setSyncStatus(state, msg) {
   const dot = el.querySelector('.sync-dot');
   const txt = el.querySelector('.sync-label');
   if (txt) txt.textContent = msg || { idle:'GitHub sync', saving:'Saving…', saved:'Saved', error:'Sync error', local:'Local only' }[state] || msg;
-  if (state === 'error') el.onclick = () => showPage('manage');
+  if (state === 'error' || state === 'local' || state === 'nopat') el.onclick = () => showPage('manage');
   else el.onclick = null;
 }
 

@@ -15,11 +15,21 @@ const CFG = window.REPO_CONFIG;
 // Set page title from config
 document.title = CFG.appName;
 document.addEventListener('DOMContentLoaded', function() {
+  // Set header text from config
   const h1 = document.querySelector('.header-brand h1');
   const subtitle = document.querySelector('.header-brand .subtitle');
   if (h1) h1.textContent = CFG.appName;
   if (subtitle) subtitle.textContent = CFG.course;
+  // Apply per-repo accent color
+  if (CFG.accentColor) {
+    const r = document.documentElement;
+    r.style.setProperty('--accent',       CFG.accentColor);
+    r.style.setProperty('--accent-light', CFG.accentColorLight || CFG.accentColor);
+    r.style.setProperty('--tag-bg',       CFG.accentColorBg  || '#e4eaff');
+    r.style.setProperty('--tag-text',     CFG.accentColorTag || CFG.accentColor);
+  }
 });
+
 
 
 // ============================================================
@@ -177,7 +187,7 @@ async function load() {
 
   if (owner && repo) {
     const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${CFG.dataFile}`;
-    const headers = {};  // raw.githubusercontent.com is public — no auth needed for reads
+    const headers = ghConfigured() ? { Authorization: `token ${ghSettings.pat}` } : {};
 
     setSyncStatus('saving', 'Loading…');
     try {
@@ -224,8 +234,8 @@ function renderGhSettings() {
   if (!el) return;
 
   const statusBar = configured
-    ? `<div class="gh-status-bar connected">✅ Connected to <strong>${s.username}/${s.repo}</strong> — data file: <code>sl1_data.json</code> on branch <strong>${s.branch || 'main'}</strong></div>`
-    : `<div class="gh-status-bar disconnected">Not configured — data is stored locally in this browser only. Add your GitHub details below to enable cloud sync.</div>`;
+    ? `<div class="gh-status-bar connected">✅ Connected to <strong>${s.username}/${s.repo}</strong> — data file: <code>${CFG.dataFile}</code> on branch <strong>${s.branch || 'main'}</strong></div>`
+    : `<div class="gh-status-bar disconnected">⚠️ Not configured — data is stored locally in this browser only.<br>Enter your GitHub details below to enable cross-device sync and saving.</div>`;
 
   el.innerHTML = `
     ${statusBar}

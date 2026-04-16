@@ -187,7 +187,7 @@ async function load() {
 
   if (owner && repo) {
     const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${CFG.dataFile}`;
-    const headers = ghConfigured() ? { Authorization: `token ${ghSettings.pat}` } : {};
+    const headers = {};  // public repo — no auth on reads (avoids CORS preflight)
 
     setSyncStatus('saving', 'Loading…');
     try {

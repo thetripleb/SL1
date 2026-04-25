@@ -117,6 +117,17 @@
     height: calc(100vh - 64px);
     overflow-y: auto;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .nav-version {
+    margin-top: auto;
+    padding: 1rem 1.2rem 0.8rem;
+    font-size: 0.7rem;
+    color: var(--text-light);
+    opacity: 0.5;
+    letter-spacing: 0.04em;
+    user-select: none;
   }
 
   .nav-section { margin-bottom: 1.5rem; }
@@ -1100,6 +1111,7 @@
     color: var(--text-muted);
     margin-left: 0.3rem;
   }
+  .btn-primary .bulk-stats { color: inherit; }
 
 
   /* ===== MODULE DETAIL PAGE ===== */
@@ -1446,6 +1458,7 @@
         Manage Data
       </div>
     </div>
+    <div class="nav-version" id="appVersionBadge">v2.1</div>
   </nav>
 
   <main>
@@ -1792,7 +1805,8 @@ let ghSettings = null;      // { username, repo, pat, branch }
 let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending = false;    // true while a save is in flight
-let _lastSyncError = null;  // last GitHub load error for display
+const APP_VERSION = '2.1';  // bumped here until build_repo.py supports {{APP_VERSION}}
+let _lastSyncError = null;  // captures real GitHub error for display
 
 function loadGhSettings() {
   try {
@@ -1817,27 +1831,23 @@ function setSyncStatus(state, msg, detail) {
   const txt = el.querySelector('.sync-label');
   const labels = { idle:'GitHub sync', saving:'Saving…', saved:'Saved', error:'Sync error', local:'Local only' };
   if (txt) txt.textContent = msg || labels[state] || state;
-
-  // Remove any previous retry button
   const old = el.querySelector('.sync-retry-btn');
   if (old) old.remove();
-
-  if (state === 'error' || state === 'local') {
-    if (state === 'error') {
-      // Retry button — re-runs load() and refreshes UI
-      const btn = document.createElement('button');
-      btn.className = 'sync-retry-btn';
-      btn.title = detail || 'Click to retry GitHub sync';
-      btn.textContent = '↺';
-      btn.onclick = async (e) => {
-        e.stopPropagation();
-        _lastSyncError = null;
-        await load();
-        renderDashboard();
-        if (typeof renderManage === 'function') renderManage();
-      };
-      el.appendChild(btn);
-    }
+  if (state === 'error') {
+    const btn = document.createElement('button');
+    btn.className = 'sync-retry-btn';
+    btn.title = detail || 'Click to retry GitHub sync';
+    btn.textContent = '↺';
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      _lastSyncError = null;
+      await load();
+      renderDashboard();
+      if (typeof renderManage === 'function') renderManage();
+    };
+    el.appendChild(btn);
+    el.onclick = () => showPage('manage');
+  } else if (state === 'local') {
     el.onclick = () => showPage('manage');
   } else {
     el.onclick = null;
@@ -1951,7 +1961,7 @@ async function load() {
   } catch(e) {
     _lastSyncError = e.message || String(e);
     console.warn('GitHub load failed:', _lastSyncError);
-    const label = _lastSyncError.includes('fetch')
+    const label = _lastSyncError.toLowerCase().includes('fetch')
       ? 'Offline — click ↺ to retry'
       : 'Sync error — click ↺ to retry';
     setSyncStatus('error', label, 'Error: ' + _lastSyncError);
@@ -3137,6 +3147,8 @@ function handleRestoreFile(input) {
 }
 
 async function initApp() {
+  const vb = document.getElementById('appVersionBadge');
+  if (vb) vb.textContent = 'v' + APP_VERSION;
   // Render shell immediately so page feels instant
   try {
     renderDashboard();

@@ -1814,8 +1814,8 @@ const STORAGE_KEY = 'sl1_repo';
 let ghSettings = null;      // { username, repo, pat, branch }
 let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
-let syncPending   = false;    // true while a save is in flight
-let isPushing     = false;    // concurrency lock
+let syncPending   = false;
+let isPushing     = false;
 const APP_VERSION = '2.1';
 let _lastSyncError = null;
 
@@ -1838,11 +1838,10 @@ function ghConfigured() {
 function showSyncError(msg) {
   const b = document.getElementById('syncErrorBanner');
   if (!b) return;
-  b.innerHTML = `<span class="close-banner" onclick="this.parentElement.style.display='none'">✕</span>
-    <strong>⚠ GitHub Sync Error</strong>${msg}`;
+  b.innerHTML = `<span class="close-banner" onclick="this.parentElement.style.display='none'">✕</span><strong>⚠ GitHub Sync Error</strong>${msg}`;
   b.style.display = 'block';
   clearTimeout(b._timer);
-  b._timer = setTimeout(() => { b.style.display = 'none'; }, 15000);
+  b._timer = setTimeout(() => { b.style.display = 'none'; }, 20000);
 }
 
 function setSyncStatus(state, msg, detail) {
@@ -1852,8 +1851,8 @@ function setSyncStatus(state, msg, detail) {
   const txt = el.querySelector('.sync-label');
   const labels = { idle:'GitHub sync', saving:'Saving…', saved:'Saved', error:'Sync error', local:'Local only' };
   if (txt) txt.textContent = msg || labels[state] || state;
-  const old = el.querySelector('.sync-retry-btn');
-  if (old) old.remove();
+  const oldBtn = el.querySelector('.sync-retry-btn');
+  if (oldBtn) oldBtn.remove();
   if (state === 'error') {
     if (detail) showSyncError(detail);
     const btn = document.createElement('button');
@@ -1862,10 +1861,8 @@ function setSyncStatus(state, msg, detail) {
     btn.textContent = '↺';
     btn.onclick = async (e) => {
       e.stopPropagation();
-      _lastSyncError = null;
-      lastSavedSha = null;
-      await load();
-      renderDashboard();
+      _lastSyncError = null; lastSavedSha = null;
+      await load(); renderDashboard();
       if (typeof renderManage === 'function') renderManage();
     };
     el.appendChild(btn);
@@ -1929,8 +1926,7 @@ async function pushToGitHub() {
     if (res.ok) {
       const result = await res.json();
       lastSavedSha = result.content.sha;
-      isPushing = false;
-      syncPending = false;
+      isPushing = false; syncPending = false;
       setSyncStatus('saved');
       setTimeout(() => setSyncStatus('idle'), 3000);
       return;
@@ -1941,11 +1937,11 @@ async function pushToGitHub() {
     if (res.status === 409 || res.status === 422 || res.status === 404) {
       lastSavedSha = null;
       isPushing = false; syncPending = false;
+      setSyncStatus('error', `Conflict — auto-retrying…`, errMsg);
       setTimeout(() => pushToGitHub(), 1500);
-      setSyncStatus('error', `Conflict (${res.status}) — auto-retrying…`, errMsg);
       return;
     }
-    setSyncStatus('error', `Save failed (${res.status}) ↺`, errMsg);
+    setSyncStatus('error', `Save failed (${res.status}) — click ↺`, errMsg);
   } catch(e) {
     console.error('GitHub push error:', e);
     setSyncStatus('error', 'Network error — click ↺', e.message || String(e));
@@ -1981,20 +1977,34 @@ async function load() {
     if (res.ok) {
       const data = await res.json();
       lastSavedSha = data.sha;
-      const decoded = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
-      const remote = JSON.parse(decoded);
+
+      let jsonText;
+      if (data.content && data.content.trim()) {
+        // Normal path: file is under 1MB, content is inline base64
+        jsonText = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+      } else if (data.download_url) {
+        // Large file path: >1MB, GitHub omits content — fetch raw directly
+        console.warn('Data file >1MB — fetching via download_url');
+        const raw = await fetch(data.download_url, { cache: 'no-store' });
+        if (!raw.ok) throw new Error(`download_url fetch failed: ${raw.status}`);
+        jsonText = await raw.text();
+      } else {
+        throw new Error('GitHub returned empty content and no download_url');
+      }
+
+      const remote = JSON.parse(jsonText);
       db = remote;
-      // Update localStorage cache with remote version
       try { localStorage.setItem('sl1_repo', JSON.stringify(db)); } catch(e) {}
       _lastSyncError = null;
       setSyncStatus('saved', 'Loaded from GitHub');
       setTimeout(() => setSyncStatus('idle'), 3000);
     } else if (res.status === 404) {
-      // File doesn't exist yet — first time, push current data
       setSyncStatus('saving', 'First sync…');
       await pushToGitHub();
     } else {
-      setSyncStatus('error', 'Load error — click to fix');
+      let errMsg = `HTTP ${res.status}`;
+      try { const j = await res.json(); errMsg = `${res.status}: ${j.message || JSON.stringify(j)}`; } catch(_) {}
+      setSyncStatus('error', `Load failed (${res.status}) ↺`, errMsg);
     }
   } catch(e) {
     _lastSyncError = e.message || String(e);

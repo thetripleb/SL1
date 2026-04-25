@@ -117,17 +117,6 @@
     height: calc(100vh - 64px);
     overflow-y: auto;
     flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .nav-version {
-    margin-top: auto;
-    padding: 1rem 1.2rem 0.8rem;
-    font-size: 0.7rem;
-    color: var(--text-light);
-    opacity: 0.5;
-    letter-spacing: 0.04em;
-    user-select: none;
   }
 
   .nav-section { margin-bottom: 1.5rem; }
@@ -1111,7 +1100,6 @@
     color: var(--text-muted);
     margin-left: 0.3rem;
   }
-  .btn-primary .bulk-stats { color: inherit; }
 
 
   /* ===== MODULE DETAIL PAGE ===== */
@@ -1320,6 +1308,11 @@
   .sync-indicator.saved   { background: rgba(80,220,120,0.25);  color: #7dffb3; }
   .sync-indicator.error   { background: rgba(255,80,80,0.25);   color: #ff9999; cursor: pointer; }
   .sync-indicator.local   { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.5); }
+  .sync-retry-btn {
+    background: none; border: none; color: inherit; cursor: pointer;
+    font-size: 1rem; padding: 0 0 0 5px; line-height: 1; opacity: 0.85; vertical-align: middle;
+  }
+  .sync-retry-btn:hover { opacity: 1; }
   .sync-dot {
     width: 7px; height: 7px;
     border-radius: 50%;
@@ -1453,7 +1446,6 @@
         Manage Data
       </div>
     </div>
-    <div class="nav-version" id="appVersionBadge">v—</div>
   </nav>
 
   <main>
@@ -1792,7 +1784,6 @@ let db = {
 };
 
 const STORAGE_KEY = 'sl1_repo';
-const APP_VERSION  = '{{APP_VERSION}}';
 
 // ============================================================
 // GITHUB-BACKED STORAGE
@@ -1801,6 +1792,7 @@ let ghSettings = null;      // { username, repo, pat, branch }
 let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending = false;    // true while a save is in flight
+let _lastSyncError = null;  // last GitHub load error for display
 
 function loadGhSettings() {
   try {
@@ -1818,15 +1810,38 @@ function ghConfigured() {
 }
 
 // ── Sync status indicator in header ─────────────────────────────────────────
-function setSyncStatus(state, msg) {
+function setSyncStatus(state, msg, detail) {
   const el = document.getElementById('syncIndicator');
   if (!el) return;
   el.className = 'sync-indicator ' + state;
-  const dot = el.querySelector('.sync-dot');
   const txt = el.querySelector('.sync-label');
-  if (txt) txt.textContent = msg || { idle:'GitHub sync', saving:'Saving…', saved:'Saved', error:'Sync error', local:'Local only' }[state] || msg;
-  if (state === 'error') el.onclick = () => showPage('manage');
-  else el.onclick = null;
+  const labels = { idle:'GitHub sync', saving:'Saving…', saved:'Saved', error:'Sync error', local:'Local only' };
+  if (txt) txt.textContent = msg || labels[state] || state;
+
+  // Remove any previous retry button
+  const old = el.querySelector('.sync-retry-btn');
+  if (old) old.remove();
+
+  if (state === 'error' || state === 'local') {
+    if (state === 'error') {
+      // Retry button — re-runs load() and refreshes UI
+      const btn = document.createElement('button');
+      btn.className = 'sync-retry-btn';
+      btn.title = detail || 'Click to retry GitHub sync';
+      btn.textContent = '↺';
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        _lastSyncError = null;
+        await load();
+        renderDashboard();
+        if (typeof renderManage === 'function') renderManage();
+      };
+      el.appendChild(btn);
+    }
+    el.onclick = () => showPage('manage');
+  } else {
+    el.onclick = null;
+  }
 }
 
 // ── Save (localStorage cache always; GitHub if configured) ──────────────────
@@ -1923,6 +1938,7 @@ async function load() {
       db = remote;
       // Update localStorage cache with remote version
       try { localStorage.setItem('sl1_repo', JSON.stringify(db)); } catch(e) {}
+      _lastSyncError = null;
       setSyncStatus('saved', 'Loaded from GitHub');
       setTimeout(() => setSyncStatus('idle'), 3000);
     } else if (res.status === 404) {
@@ -1933,8 +1949,12 @@ async function load() {
       setSyncStatus('error', 'Load error — click to fix');
     }
   } catch(e) {
-    console.warn('GitHub load failed, using local cache:', e);
-    setSyncStatus('local', 'Offline — local data');
+    _lastSyncError = e.message || String(e);
+    console.warn('GitHub load failed:', _lastSyncError);
+    const label = _lastSyncError.includes('fetch')
+      ? 'Offline — click ↺ to retry'
+      : 'Sync error — click ↺ to retry';
+    setSyncStatus('error', label, 'Error: ' + _lastSyncError);
   }
 }
 
@@ -3117,8 +3137,6 @@ function handleRestoreFile(input) {
 }
 
 async function initApp() {
-  const vb = document.getElementById('appVersionBadge');
-  if (vb) vb.textContent = 'v' + APP_VERSION;
   // Render shell immediately so page feels instant
   try {
     renderDashboard();

@@ -1805,8 +1805,9 @@ let ghSettings = null;      // { username, repo, pat, branch }
 let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending = false;    // true while a save is in flight
-const APP_VERSION = '2.1';  // bumped here until build_repo.py supports {{APP_VERSION}}
-let _lastSyncError = null;  // captures real GitHub error for display
+const APP_VERSION = '2.1';
+let _lastSyncError = null;
+let isPushing   = false;    // concurrency lock — prevents overlapping pushes
 
 function loadGhSettings() {
   try {
@@ -1841,6 +1842,7 @@ function setSyncStatus(state, msg, detail) {
     btn.onclick = async (e) => {
       e.stopPropagation();
       _lastSyncError = null;
+      lastSavedSha = null;
       await load();
       renderDashboard();
       if (typeof renderManage === 'function') renderManage();
@@ -1868,6 +1870,8 @@ function save() {
 
 async function pushToGitHub() {
   if (!ghConfigured()) return;
+  if (isPushing) { clearTimeout(saveTimer); saveTimer = setTimeout(pushToGitHub, 2000); return; }
+  isPushing   = true;
   syncPending = true;
   const { username, repo, pat, branch } = ghSettings;
   const b = branch || 'main';
@@ -1905,14 +1909,29 @@ async function pushToGitHub() {
       setSyncStatus('saved');
       setTimeout(() => setSyncStatus('idle'), 3000);
     } else {
-      const err = await res.json();
-      console.error('GitHub save failed:', err);
-      setSyncStatus('error', 'Sync error — click to fix');
+      let errMsg = `HTTP ${res.status}`;
+      try { const j = await res.json(); errMsg = j.message || errMsg; } catch(e2) {}
+      console.error('GitHub save failed:', errMsg);
+      // Reset SHA so next attempt re-fetches fresh SHA from GitHub
+      // (prevents permanent 409 conflict loop from stale SHA)
+      if (res.status === 409 || res.status === 422 || res.status === 404) {
+        lastSavedSha = null;
+      }
+      const short = res.status === 401 ? 'Auth error — check PAT'
+                  : res.status === 409 ? 'Conflict — retrying…'
+                  : res.status === 404 ? 'File not found — retrying…'
+                  : `Save failed (${res.status})`;
+      setSyncStatus('error', short + ' ↺', errMsg);
+      // Auto-retry once on SHA conflicts (409/422/404)
+      if (res.status === 409 || res.status === 422 || res.status === 404) {
+        setTimeout(() => pushToGitHub(), 1500);
+      }
     }
   } catch(e) {
     console.error('GitHub push error:', e);
-    setSyncStatus('error', 'Sync error — click to fix');
+    setSyncStatus('error', 'Network error — click ↺', e.message || String(e));
   }
+  isPushing   = false;
   syncPending = false;
 }
 
@@ -1961,10 +1980,7 @@ async function load() {
   } catch(e) {
     _lastSyncError = e.message || String(e);
     console.warn('GitHub load failed:', _lastSyncError);
-    const label = _lastSyncError.toLowerCase().includes('fetch')
-      ? 'Offline — click ↺ to retry'
-      : 'Sync error — click ↺ to retry';
-    setSyncStatus('error', label, 'Error: ' + _lastSyncError);
+    setSyncStatus('error', 'Sync error — click ↺ to retry', 'Error: ' + _lastSyncError);
   }
 }
 

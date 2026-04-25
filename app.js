@@ -1,5 +1,5 @@
 // ============================================================
-// Study Repository — Shared App v2.0
+// Study Repository — Shared App v2.1
 // ============================================================
 // This file is IDENTICAL across all repos (SL1, COMMDIS1A, ASTRO, HS19…).
 // Repo-specific values come from config.js which must load BEFORE this file.
@@ -53,6 +53,7 @@ let ghSettings = null;      // { username, repo, pat, branch }
 let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending = false;    // true while a save is in flight
+let isPushing  = false;    // concurrency lock — prevents overlapping pushes
 
 function loadGhSettings() {
   try {
@@ -95,6 +96,13 @@ function save() {
 
 async function pushToGitHub() {
   if (!ghConfigured()) return;
+  // Concurrency guard — if a push is already in flight, queue one retry
+  if (isPushing) {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(pushToGitHub, 2000);
+    return;
+  }
+  isPushing  = true;
   syncPending = true;
   const { username, repo, pat, branch } = ghSettings;
   const b = branch || 'main';
@@ -186,6 +194,7 @@ async function pushToGitHub() {
     console.error('GitHub push error:', e);
     setSyncStatus('error', `Sync error — ${e.message}`);
   }
+  isPushing   = false;
   syncPending = false;
 }
 
@@ -1003,7 +1012,8 @@ function showModuleDetail(moduleId) {
 // ============================================================
 // MANAGE
 // ============================================================
-let pendingImport = null;
+// pendingImports is an array of { file, data, error, hint, status }
+let pendingImports = [];
 
 function renderManage() {
   document.getElementById('repoStats').innerHTML =
@@ -1022,78 +1032,321 @@ function exportData() {
   a.click();
 }
 
+// ── Drop handler ────────────────────────────────────────────
 function handleClaudeImportDrop(e) {
   e.preventDefault();
-  const file = e.dataTransfer.files[0];
-  if (file && file.name.endsWith('.json')) readImportFile(file);
+  document.getElementById('claudeImportArea').classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.json'));
+  if (!files.length) {
+    _importShowError('No .json files found. Please drop files exported from the Study Repo Importer.');
+    return;
+  }
+  readImportFiles(files);
 }
 
+
+// ── File input handler ──────────────────────────────────────
 function previewImport(input) {
-  const file = input.files[0];
-  if (file) readImportFile(file);
+  const files = Array.from(input.files);
+  if (files.length) readImportFiles(files);
 }
 
-function readImportFile(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      pendingImport = data;
-      showImportPreview(data);
-    } catch(err) {
-      alert('Could not read file: ' + err.message + '\n\nMake sure this is a valid .json file from Claude or a repository backup.');
+
+// ── Read all files in parallel ──────────────────────────────
+function readImportFiles(files) {
+  pendingImports = files.map(f => ({ file: f, data: null, error: null, hint: null, status: 'pending' }));
+  showImportQueue(); // show loading state immediately
+
+  let completed = 0;
+
+  pendingImports.forEach((item) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const raw = e.target.result;
+        let data;
+
+        // ── Parse ────────────────────────────────────────────
+        try {
+          data = JSON.parse(raw);
+        } catch (parseErr) {
+          throw new Error('Invalid JSON — file could not be parsed. (' + parseErr.message + ')');
+        }
+
+        // ── Validate structure ───────────────────────────────
+        if (typeof data !== 'object' || Array.isArray(data)) {
+          throw new Error('Unexpected format — file must be a JSON object, not an array or primitive.');
+        }
+
+        const hasContent = ['notes', 'glossary', 'flashcards', 'questions'].some(k => Array.isArray(data[k]) && data[k].length > 0);
+        const hasKeys    = ['notes', 'glossary', 'flashcards', 'questions'].some(k => k in data);
+
+        if (!hasKeys) {
+          const foundKeys = Object.keys(data).join(', ') || '(none)';
+          throw new Error(
+            'File does not contain study data. Expected keys: notes, glossary, flashcards, questions. ' +
+            'Found: ' + foundKeys + '.'
+          );
+        }
+
+        if (!hasContent) {
+          item.hint = 'File has the right structure but all arrays are empty — it may have been generated with no content.';
+        }
+
+        // ── Duplicate detection ──────────────────────────────
+        const existingIds = new Set([
+          ...(db.notes      || []).map(x => x.id),
+          ...(db.glossary   || []).map(x => x.id),
+          ...(db.flashcards || []).map(x => x.id),
+          ...(db.questions  || []).map(x => x.id),
+        ]);
+
+        const incomingIds = [
+          ...(data.notes      || []).map(x => x.id),
+          ...(data.glossary   || []).map(x => x.id),
+          ...(data.flashcards || []).map(x => x.id),
+          ...(data.questions  || []).map(x => x.id),
+        ];
+
+        const dupes = incomingIds.filter(id => id && existingIds.has(id)).length;
+        if (dupes > 0) {
+          item.hint = dupes + ' item' + (dupes > 1 ? 's' : '') + ' already exist in your repo and will be skipped on merge.';
+        }
+
+        item.data   = data;
+        item.status = 'ready';
+
+      } catch (err) {
+        item.error  = err.message;
+        item.status = 'error';
+      }
+
+      completed++;
+      if (completed === pendingImports.length) showImportQueue();
+    };
+
+    reader.onerror = () => {
+      item.error  = 'Could not read the file — it may be corrupted or inaccessible.';
+      item.status = 'error';
+      completed++;
+      if (completed === pendingImports.length) showImportQueue();
+    };
+
+    reader.readAsText(item.file);
+  });
+}
+
+
+// ── Render the import queue UI ──────────────────────────────
+function showImportQueue() {
+  const preview     = document.getElementById('importPreview');
+  const content     = document.getElementById('importPreviewContent');
+  const assignPanel = document.getElementById('importModuleAssign');
+
+  const ready   = pendingImports.filter(i => i.status === 'ready');
+  const errors  = pendingImports.filter(i => i.status === 'error');
+  const pending = pendingImports.filter(i => i.status === 'pending');
+
+  // ── File list ──────────────────────────────────────────────
+  let html = '<div class="import-file-list">';
+
+  pendingImports.forEach(item => {
+    if (item.status === 'pending') {
+      html += `<div class="import-file-row pending">
+        <span class="import-file-name">⏳ ${_esc(item.file.name)}</span>
+        <span style="font-size:.78rem;color:var(--text-muted)">Reading…</span>
+      </div>`;
+
+    } else if (item.status === 'error') {
+      const hint = _importErrorHint(item.error);
+      html += `<div class="import-file-row error">
+        <span class="import-file-name">✗ ${_esc(item.file.name)}</span>
+        <span class="import-file-error-msg">${_esc(item.error)}</span>
+        ${hint ? `<span class="import-file-hint">💡 ${hint}</span>` : ''}
+      </div>`;
+
+    } else {
+      const d = item.data;
+      const counts = [
+        (d.notes      || []).length ? `${d.notes.length} note${d.notes.length > 1 ? 's' : ''}`          : '',
+        (d.glossary   || []).length ? `${d.glossary.length} term${d.glossary.length > 1 ? 's' : ''}`    : '',
+        (d.flashcards || []).length ? `${d.flashcards.length} card${d.flashcards.length > 1 ? 's' : ''}`: '',
+        (d.questions  || []).length ? `${d.questions.length} question${d.questions.length > 1 ? 's' : ''}`: '',
+      ].filter(Boolean).join(', ') || 'empty';
+      html += `<div class="import-file-row ready">
+        <span class="import-file-name">✓ ${_esc(item.file.name)}</span>
+        <span class="import-file-counts">${counts}</span>
+        ${item.hint ? `<span class="import-file-hint">ℹ ${_esc(item.hint)}</span>` : ''}
+      </div>`;
     }
-  };
-  reader.readAsText(file);
+  });
+
+  html += '</div>';
+
+  // ── Summary box ────────────────────────────────────────────
+  if (pending.length === 0) {
+    if (ready.length > 0) {
+      const totals = ready.reduce((acc, item) => {
+        acc.notes      += (item.data.notes      || []).length;
+        acc.glossary   += (item.data.glossary   || []).length;
+        acc.flashcards += (item.data.flashcards || []).length;
+        acc.questions  += (item.data.questions  || []).length;
+        return acc;
+      }, { notes: 0, glossary: 0, flashcards: 0, questions: 0 });
+
+      const totalStr = [
+        totals.notes      ? `${totals.notes} note${totals.notes > 1 ? 's' : ''}`           : '',
+        totals.glossary   ? `${totals.glossary} term${totals.glossary > 1 ? 's' : ''}`     : '',
+        totals.flashcards ? `${totals.flashcards} card${totals.flashcards > 1 ? 's' : ''}` : '',
+        totals.questions  ? `${totals.questions} question${totals.questions > 1 ? 's' : ''}`: '',
+      ].filter(Boolean).join(', ') || 'nothing';
+
+      const cls = errors.length ? 'warn' : 'success';
+      html += `<div class="import-summary-box ${cls}">
+        <strong>Ready to merge ${ready.length} file${ready.length > 1 ? 's' : ''}:</strong> ${totalStr}
+        ${errors.length ? `<div style="margin-top:4px;color:#b45309">⚠ ${errors.length} file${errors.length > 1 ? 's were' : ' was'} skipped — see errors above.</div>` : ''}
+      </div>`;
+    } else {
+      html += `<div class="import-summary-box warn">
+        ✗ All files failed to load. Check the errors above and try again.
+      </div>`;
+    }
+  }
+
+  content.innerHTML = html;
+
+  // Populate module select
+  if (ready.length > 0 && pending.length === 0) {
+    const sel = document.getElementById('importModuleSelect');
+    if (sel) {
+      sel.innerHTML = '<option value="">— No Module (import as-is) —</option>' +
+        db.modules.map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
+    }
+    assignPanel.style.display = '';
+  } else {
+    assignPanel.style.display = 'none';
+  }
+  preview.style.display = '';
 }
 
-function showImportPreview(data) {
-  const preview = document.getElementById('importPreview');
-  const content = document.getElementById('importPreviewContent');
-  preview.style.display = 'block';
 
-  const isFullBackup = data.meta && data.modules && data.glossary && data.flashcards && data.questions;
-  const isContentImport = data.glossary || data.flashcards || data.questions || data.notes;
-
-  if (!isContentImport && !isFullBackup) {
-    content.innerHTML = `<div style="color:var(--danger);font-size:0.9rem">⚠ This file doesn't appear to be a valid repository file.</div>`;
+// ── Merge all ready files into the repo ─────────────────────
+function confirmImport() {
+  const ready = pendingImports.filter(i => i.status === 'ready');
+  if (!ready.length) {
+    alert('No valid files to import. Please check the errors and try again.');
     return;
   }
 
-  const sections = [];
-  if (isFullBackup && data.modules?.length) sections.push(previewSection('📁 Modules', data.modules, m => m.name, data.modules.length));
-  if (data.glossary?.length) sections.push(previewSection('📖 Glossary Terms', data.glossary, t => `<strong>${escHtml(t.term)}</strong> — ${escHtml(t.def?.slice(0,80))}${t.def?.length>80?'…':''}`, data.glossary.length));
-  if (data.flashcards?.length) sections.push(previewSection('🃏 Flashcards', data.flashcards, f => escHtml(f.front?.slice(0,80)), data.flashcards.length));
-  if (data.questions?.length) {
-    const typeLabels = {mc:'MC',tf:'T/F',fitb:'Fill-in',match:'Match',sa:'Short Answer'};
-    sections.push(previewSection('❓ Quiz Questions', data.questions, q => `<span class="tag neutral">${typeLabels[q.type]||q.type}</span> ${escHtml(q.text?.slice(0,70))}`, data.questions.length));
-  }
-  if (data.notes?.length) sections.push(previewSection('📝 Notes', data.notes, n => escHtml(n.title||'Untitled'), data.notes.length));
+  const moduleId = document.getElementById('importModuleSelect').value || null;
+  const applyMod = (item) => (moduleId ? { ...item, module: moduleId } : item);
 
-  if (!sections.length) { content.innerHTML = `<div style="color:var(--text-muted);font-size:0.9rem">This file appears empty — nothing to import.</div>`; return; }
+  const existingIds = new Set([
+    ...(db.notes      || []).map(x => x.id),
+    ...(db.glossary   || []).map(x => x.id),
+    ...(db.flashcards || []).map(x => x.id),
+    ...(db.questions  || []).map(x => x.id),
+  ]);
 
-  // Populate module picker for content imports
+  const totals  = { notes: 0, glossary: 0, flashcards: 0, questions: 0 };
+  const skipped = { notes: 0, glossary: 0, flashcards: 0, questions: 0 };
+
+  ready.forEach(item => {
+    const d = item.data;
+
+    (d.notes || []).forEach(n => {
+      if (n.id && existingIds.has(n.id)) { skipped.notes++; return; }
+      db.notes.push(applyMod(n));
+      if (n.id) existingIds.add(n.id);
+      totals.notes++;
+    });
+
+    (d.glossary || []).forEach(t => {
+      if (t.id && existingIds.has(t.id)) { skipped.glossary++; return; }
+      db.glossary.push(applyMod(t));
+      if (t.id) existingIds.add(t.id);
+      totals.glossary++;
+    });
+
+    (d.flashcards || []).forEach(f => {
+      if (f.id && existingIds.has(f.id)) { skipped.flashcards++; return; }
+      db.flashcards.push(applyMod(f));
+      if (f.id) existingIds.add(f.id);
+      totals.flashcards++;
+    });
+
+    (d.questions || []).forEach(q => {
+      if (q.id && existingIds.has(q.id)) { skipped.questions++; return; }
+      db.questions.push(applyMod(q));
+      if (q.id) existingIds.add(q.id);
+      totals.questions++;
+    });
+  });
+
+  save();
+
+  pendingImports = [];
+  document.getElementById('importPreview').style.display = 'none';
+  document.getElementById('claudeImportFile').value = '';
+  renderDashboard(); renderManage(); updateBadges();
+  checkDataAndShowPrompts();
+
+  const addedStr = [
+    totals.notes      ? `${totals.notes} note${totals.notes > 1 ? 's' : ''}`           : '',
+    totals.glossary   ? `${totals.glossary} term${totals.glossary > 1 ? 's' : ''}`     : '',
+    totals.flashcards ? `${totals.flashcards} card${totals.flashcards > 1 ? 's' : ''}` : '',
+    totals.questions  ? `${totals.questions} question${totals.questions > 1 ? 's' : ''}`: '',
+  ].filter(Boolean).join(', ') || 'nothing';
+
+  const totalSkipped = skipped.notes + skipped.glossary + skipped.flashcards + skipped.questions;
+  const skipMsg = totalSkipped > 0
+    ? `\n${totalSkipped} duplicate${totalSkipped > 1 ? 's were' : ' was'} skipped (already in repo).`
+    : '';
+
+  alert(`✓ Import complete!\n\nAdded: ${addedStr}${skipMsg}`);
+}
+
+
+// ── Cancel import ────────────────────────────────────────────
+function cancelImport() {
+  pendingImports = [];
+  document.getElementById('importPreview').style.display = 'none';
+  document.getElementById('claudeImportFile').value = '';
   const assignPanel = document.getElementById('importModuleAssign');
-  if (!isFullBackup && assignPanel) {
-    const sel = document.getElementById('importModuleSelect');
-    sel.innerHTML = '<option value="">— No Module (import as-is) —</option>' +
-      db.modules.map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
-    // Pre-select suggested module from meta_import if it matches
-    const suggested = data.meta_import?.suggested_module_id;
-    if (suggested) {
-      const match = db.modules.find(m => m.id === suggested || m.name.toLowerCase() === (data.meta_import?.suggested_module||'').toLowerCase());
-      if (match) sel.value = match.id;
-    }
-    assignPanel.style.display = 'flex';
-  } else if (assignPanel) {
-    assignPanel.style.display = 'none';
-  }
+  if (assignPanel) assignPanel.style.display = 'none';
+}
 
-  const mode = isFullBackup
-    ? '<span style="background:#fff3e0;color:#8b4a0e;padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">FULL BACKUP — will REPLACE all data</span>'
-    : '<span style="background:var(--tag-bg);color:var(--tag-text);padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">CONTENT IMPORT — will MERGE with existing data</span>';
 
-  content.innerHTML = `<div style="margin-bottom:1rem">${mode}</div>` + sections.join('');
+// ── Import helpers ───────────────────────────────────────────
+function _esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _importShowError(msg) {
+  const content = document.getElementById('importPreviewContent');
+  const preview = document.getElementById('importPreview');
+  const assign  = document.getElementById('importModuleAssign');
+  content.innerHTML = `<div class="import-file-row error">
+    <span class="import-file-name">✗ Drop failed</span>
+    <span class="import-file-error-msg">${_esc(msg)}</span>
+  </div>`;
+  assign.style.display = 'none';
+  preview.style.display = '';
+}
+
+function _importErrorHint(errMsg) {
+  if (!errMsg) return null;
+  const m = errMsg.toLowerCase();
+  if (m.includes('unexpected token') || m.includes('json'))
+    return 'File may not be valid JSON. Try re-downloading from the Study Repo Importer.';
+  if (m.includes('does not contain study data') || m.includes('expected keys'))
+    return 'Make sure you are importing a file from the Study Repo Importer, not a generic JSON file.';
+  if (m.includes('unexpected format'))
+    return 'The file structure is wrong. It should be a JSON object, not an array.';
+  if (m.includes('corrupted'))
+    return 'Try re-downloading the file or check that it was not modified after export.';
+  return null;
 }
 
 function previewSection(title, items, labelFn, count) {
@@ -1103,47 +1356,6 @@ function previewSection(title, items, labelFn, count) {
     <div style="font-weight:700;font-size:0.88rem;margin-bottom:0.4rem">${title} <span style="font-weight:400;color:var(--text-muted)">(${count} items)</span></div>
     ${preview}${more}
   </div>`;
-}
-
-function confirmImport() {
-  if (!pendingImport) return;
-  const data = pendingImport;
-  const isFullBackup = data.meta && data.modules;
-
-  if (isFullBackup) {
-    if (!confirm('This will REPLACE all your current data with the backup. Are you sure?')) return;
-    db = data;
-  } else {
-    // Get selected target module (if any)
-    const targetMod = document.getElementById('importModuleSelect')?.value || '';
-    // Create module from suggested_module if it was in the JSON and doesn't exist yet
-    if (targetMod === '' && data.meta_import?.suggested_module) {
-      // user chose no module — respect that
-    }
-    const applyMod = (item) => targetMod ? { ...item, module: targetMod } : item;
-
-    if (data.modules) data.modules.forEach(m => { if (!db.modules.find(x => x.id === m.id)) db.modules.push(m); });
-    if (data.glossary) { data.glossary.forEach(t => { if (!db.glossary.find(x => x.id === t.id)) db.glossary.push(applyMod(t)); }); db.glossary.sort((a,b) => a.term.localeCompare(b.term)); }
-    if (data.flashcards) data.flashcards.forEach(f => { if (!db.flashcards.find(x => x.id === f.id)) db.flashcards.push(applyMod(f)); });
-    if (data.questions) data.questions.forEach(q => { if (!db.questions.find(x => x.id === q.id)) db.questions.push(applyMod(q)); });
-    if (data.notes) data.notes.forEach(n => { if (!db.notes.find(x => x.id === n.id)) db.notes.unshift(applyMod(n)); });
-  }
-
-  save();
-  pendingImport = null;
-  document.getElementById('importPreview').style.display = 'none';
-  document.getElementById('claudeImportFile').value = '';
-  renderDashboard(); renderManage(); updateBadges();
-  checkDataAndShowPrompts();
-  alert('✓ Import successful! Your repository has been updated.');
-}
-
-function cancelImport() {
-  pendingImport = null;
-  document.getElementById('importPreview').style.display = 'none';
-  document.getElementById('claudeImportFile').value = '';
-  const assignPanel = document.getElementById('importModuleAssign');
-  if (assignPanel) assignPanel.style.display = 'none';
 }
 
 function quickCreateModuleForImport() {

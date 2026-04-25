@@ -1,5 +1,5 @@
 /* ============================================================
-   Study Repository — Shared Stylesheet v2.0
+   Study Repository — Shared Stylesheet v2.1
    Same file used by SL1, COMMDIS1A, ASTRO, HS19 and all future repos.
    Repo accent color is set via --accent in each repo's config.js.
    ============================================================ */
@@ -1128,6 +1128,10 @@
     margin-left: 0.3rem;
   }
 
+  .btn-primary .bulk-stats {
+    color: inherit;
+  }
+
 
   /* ===== MODULE DETAIL PAGE ===== */
   .module-detail-section {
@@ -1478,4 +1482,86 @@
   color: var(--text-muted);
   margin-top: 0.5rem;
   min-height: 1.2rem;
+}
+
+/* ============================================================
+   Multi-file import queue  (added v2.1)
+   ============================================================ */
+
+.import-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.import-file-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.import-file-row.ready {
+  border-color: var(--success);
+  background: rgba(39, 174, 96, 0.07);
+}
+
+.import-file-row.error {
+  border-color: var(--danger);
+  background: rgba(192, 57, 43, 0.07);
+}
+
+.import-file-row.pending {
+  opacity: 0.65;
+}
+
+.import-file-name {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.import-file-counts {
+  font-size: 0.78rem;
+  color: var(--success);
+  font-weight: 500;
+}
+
+.import-file-error-msg {
+  font-size: 0.78rem;
+  color: var(--danger);
+  line-height: 1.4;
+}
+
+.import-file-hint {
+  font-size: 0.75rem;
+  color: #b45309;
+  margin-top: 2px;
+}
+
+.import-summary-box {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.import-summary-box.success {
+  background: rgba(39, 174, 96, 0.1);
+  border: 1px solid var(--success);
+  color: var(--text);
+}
+
+.import-summary-box.warn {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid #f59e0b;
+  color: var(--text);
 }

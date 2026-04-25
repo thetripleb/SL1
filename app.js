@@ -106,40 +106,64 @@ async function pushToGitHub() {
   };
   const jsonStr = JSON.stringify(db, null, 2);
 
+  // Helper: fetch with improved error detail (reads GitHub's error message body)
+  async function ghFetch(url, opts) {
+    let res;
+    try {
+      res = await fetch(url, opts);
+    } catch(netErr) {
+      // Network-level failure (often masks a 401/403 as a CORS error)
+      // Run a lightweight auth check to distinguish PAT problems from real network issues
+      try {
+        const authCheck = await fetch(`${base}`, { headers });
+        if (!authCheck.ok) {
+          const authErr = await authCheck.json().catch(() => ({}));
+          throw new Error(`Auth check failed (${authCheck.status}): ${authErr.message || 'Check your PAT — it may be expired or missing write permissions.'}`);
+        }
+      } catch(authCheckErr) {
+        if (authCheckErr.message.startsWith('Auth check')) throw authCheckErr;
+        // auth check also failed at network level — real connectivity issue
+      }
+      throw new Error(`Network error on ${url.split('/').pop()}: ${netErr.message}`);
+    }
+    if (!res.ok) {
+      let detail = '';
+      try { const body = await res.clone().json(); detail = body.message || ''; } catch(e) {}
+      throw new Error(`GitHub API error ${res.status} on ${url.split('/').pop()}${detail ? ': ' + detail : ''}`);
+    }
+    return res;
+  }
+
   try {
     // Step 1: Create a blob (supports files of any size — no 1MB limit)
-    const blobRes = await fetch(`${base}/git/blobs`, {
+    const blobRes = await ghFetch(`${base}/git/blobs`, {
       method: 'POST', headers,
       body: JSON.stringify({ content: jsonStr, encoding: 'utf-8' })
     });
-    if (!blobRes.ok) throw new Error(`Blob creation failed: ${blobRes.status}`);
     const blob = await blobRes.json();
 
     // Step 2: Get the current HEAD commit SHA for the branch
-    const refRes = await fetch(`${base}/git/ref/heads/${b}`, { headers });
-    if (!refRes.ok) throw new Error(`Ref fetch failed: ${refRes.status}`);
+    const refRes = await ghFetch(`${base}/git/ref/heads/${b}`, { headers });
     const ref = await refRes.json();
     const latestCommitSha = ref.object.sha;
 
     // Step 3: Get the tree SHA from that commit
-    const commitRes = await fetch(`${base}/git/commits/${latestCommitSha}`, { headers });
-    if (!commitRes.ok) throw new Error(`Commit fetch failed: ${commitRes.status}`);
+    const commitRes = await ghFetch(`${base}/git/commits/${latestCommitSha}`, { headers });
     const commit = await commitRes.json();
     const baseTreeSha = commit.tree.sha;
 
     // Step 4: Create a new tree with the updated file
-    const treeRes = await fetch(`${base}/git/trees`, {
+    const treeRes = await ghFetch(`${base}/git/trees`, {
       method: 'POST', headers,
       body: JSON.stringify({
         base_tree: baseTreeSha,
         tree: [{ path: CFG.dataFile, mode: '100644', type: 'blob', sha: blob.sha }]
       })
     });
-    if (!treeRes.ok) throw new Error(`Tree creation failed: ${treeRes.status}`);
     const tree = await treeRes.json();
 
     // Step 5: Create a new commit
-    const newCommitRes = await fetch(`${base}/git/commits`, {
+    const newCommitRes = await ghFetch(`${base}/git/commits`, {
       method: 'POST', headers,
       body: JSON.stringify({
         message: `Auto-save ${CFG.dataFile}`,
@@ -147,22 +171,20 @@ async function pushToGitHub() {
         parents: [latestCommitSha]
       })
     });
-    if (!newCommitRes.ok) throw new Error(`Commit creation failed: ${newCommitRes.status}`);
     const newCommit = await newCommitRes.json();
 
     // Step 6: Update the branch ref to point to the new commit
-    const updateRefRes = await fetch(`${base}/git/refs/heads/${b}`, {
+    await ghFetch(`${base}/git/refs/heads/${b}`, {
       method: 'PATCH', headers,
       body: JSON.stringify({ sha: newCommit.sha })
     });
-    if (!updateRefRes.ok) throw new Error(`Ref update failed: ${updateRefRes.status}`);
 
     lastSavedSha = newCommit.sha;
     setSyncStatus('saved');
     setTimeout(() => setSyncStatus('idle'), 3000);
   } catch(e) {
     console.error('GitHub push error:', e);
-    setSyncStatus('error', 'Sync error — click to fix');
+    setSyncStatus('error', `Sync error — ${e.message}`);
   }
   syncPending = false;
 }
@@ -311,7 +333,7 @@ async function testGhConnection() {
 }
 
 async function forcePushToGitHub() {
-  if (!confirm('Push your current local data to GitHub now? This will overwrite whatever is in sl1_data.json.')) return;
+  if (!confirm(`Push your current local data to GitHub now? This will overwrite whatever is in ${CFG.dataFile}.`)) return;
   lastSavedSha = null;
   setSyncStatus('saving');
   await pushToGitHub();

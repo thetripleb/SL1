@@ -53,6 +53,7 @@ let ghSettings = null;      // { username, repo, pat, branch }
 let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending = false;    // true while a save is in flight
+let _lastSyncError = null;  // last GitHub load error message for display
 let isPushing  = false;    // concurrency lock — prevents overlapping pushes
 
 function loadGhSettings() {
@@ -71,15 +72,32 @@ function ghConfigured() {
 }
 
 // ── Sync status indicator in header ─────────────────────────────────────────
-function setSyncStatus(state, msg) {
+function setSyncStatus(state, msg, detail) {
   const el = document.getElementById('syncIndicator');
   if (!el) return;
   el.className = 'sync-indicator ' + state;
-  const dot = el.querySelector('.sync-dot');
   const txt = el.querySelector('.sync-label');
-  if (txt) txt.textContent = msg || { idle:'GitHub sync', saving:'Saving…', saved:'Saved', error:'Sync error', local:'Local only' }[state] || msg;
-  if (state === 'error' || state === 'local' || state === 'nopat') el.onclick = () => showPage('manage');
-  else el.onclick = null;
+  const defaultLabels = { idle:'GitHub sync', saving:'Saving…', saved:'Saved', error:'Sync error', local:'Local only' };
+  if (txt) txt.textContent = msg || defaultLabels[state] || state;
+
+  // Remove old retry button if any
+  const oldBtn = el.querySelector('.sync-retry-btn');
+  if (oldBtn) oldBtn.remove();
+
+  if (state === 'error') {
+    // Show retry button + settings link
+    const btn = document.createElement('button');
+    btn.className = 'sync-retry-btn';
+    btn.title = detail || 'Click to retry sync';
+    btn.textContent = '↺';
+    btn.onclick = (e) => { e.stopPropagation(); load().then(() => { renderDashboard(); renderManage(); }); };
+    el.appendChild(btn);
+    el.onclick = () => showPage('manage');
+  } else if (state === 'local' || state === 'nopat') {
+    el.onclick = () => showPage('manage');
+  } else {
+    el.onclick = null;
+  }
 }
 
 // ── Save (localStorage cache always; GitHub if configured) ──────────────────
@@ -232,6 +250,7 @@ async function load() {
           db = remote;
           try { localStorage.setItem(CFG.storageKey, JSON.stringify(db)); } catch(e) {}
         }
+        _lastSyncError = null;
         if (ghConfigured()) {
           setSyncStatus('saved', 'Synced');
         } else {
@@ -248,12 +267,20 @@ async function load() {
       // Non-404 error fall through to local-only
     } catch(e) {
       console.warn('GitHub load failed, using local cache:', e);
+      _lastSyncError = e.message || String(e);
     }
   }
 
   // ── Step 3: Fallback — use whatever is in localStorage ──────────────────
-  setSyncStatus(ghConfigured() ? 'error' : 'local',
-                ghConfigured() ? 'Sync error — click to fix' : 'Local only');
+  if (ghConfigured()) {
+    const detail = _lastSyncError ? `Last error: ${_lastSyncError}` : 'Could not reach GitHub';
+    const label  = _lastSyncError
+      ? (_lastSyncError.includes('Failed to fetch') ? 'Offline — local data' : `Sync error — ${_lastSyncError.slice(0,40)}`)
+      : 'Sync error — click ↺ to retry';
+    setSyncStatus('error', label, detail);
+  } else {
+    setSyncStatus('local', 'Local only');
+  }
 }
 
 

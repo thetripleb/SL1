@@ -112,6 +112,8 @@
     height: calc(100vh - 64px);
     overflow-y: auto;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .nav-section { margin-bottom: 1.5rem; }
@@ -249,6 +251,18 @@
   .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
   .btn-warm { background: var(--accent-warm); color: white; }
   .btn-warm:hover { background: #a5682b; }
+
+
+  /* version badge at bottom of sidebar */
+  .nav-version {
+    margin-top: auto;
+    padding: 1rem 1.2rem 0.8rem;
+    font-size: 0.7rem;
+    color: var(--text-light);
+    opacity: 0.5;
+    letter-spacing: 0.04em;
+    user-select: none;
+  }
 
   /* bulk-stats: number/paren counts on assign buttons */
   .bulk-stats { font-size: 0.78rem; color: var(--text-muted); margin-left: 0.3rem; }

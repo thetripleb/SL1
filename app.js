@@ -11,6 +11,7 @@ if (!window.REPO_CONFIG) {
   throw new Error('[app.js] window.REPO_CONFIG not found. Ensure config.js loads before app.js.');
 }
 const CFG = window.REPO_CONFIG;
+const APP_VERSION = '2.1';
 
 // Set page title from config
 document.title = CFG.appName;
@@ -1851,6 +1852,9 @@ function handleRestoreFile(input) {
 }
 
 async function initApp() {
+  // Set version badge
+  const vb = document.getElementById('appVersionBadge');
+  if (vb) vb.textContent = 'v' + APP_VERSION;
   // Render shell immediately so page feels instant
   try {
     renderDashboard();

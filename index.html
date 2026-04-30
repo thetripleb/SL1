@@ -874,24 +874,40 @@
     min-height: 400px;
   }
 
-  /* SEARCH DEEP-LINK BACK BUTTON */
+  /* SEARCH DEEP-LINK BACK BUTTON — floats fixed below header, top-right */
+  #glossaryBackBtn,
+  #fcBackBtn,
+  #quizBackBtn,
+  #notesBackBtn {
+    position: fixed;
+    top: 72px;
+    right: 1.75rem;
+    z-index: 99;
+  }
+
   .search-back-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.85rem;
-    border-radius: 6px;
+    gap: 0.4rem;
+    padding: 0.45rem 1.1rem;
+    border-radius: 20px;
     border: 1px solid var(--border);
-    background: var(--surface-2);
+    background: var(--surface);
     color: var(--text-muted);
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    margin-bottom: 0.65rem;
     transition: all 0.15s;
     font-family: 'Inter', sans-serif;
+    box-shadow: var(--shadow);
+    white-space: nowrap;
   }
-  .search-back-btn:hover { border-color: var(--accent-light); color: var(--accent); background: var(--tag-bg); }
+  .search-back-btn:hover {
+    border-color: var(--accent-light);
+    color: var(--accent);
+    background: var(--tag-bg);
+    box-shadow: var(--shadow-lg);
+  }
 
   /* GLOSSARY SEARCH HIGHLIGHT */
   .glossary-entry.search-highlight { animation: gloss-hl 2.5s ease-out forwards; border-radius: 6px; }
@@ -1878,8 +1894,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-04-30 16:50';
-const BUILD_TS = '20260430165045';
+const APP_VERSION = '2026-04-30 16:59';
+const BUILD_TS = '20260430165931';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 

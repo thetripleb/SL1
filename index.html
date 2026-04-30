@@ -1878,8 +1878,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-04-30 16:24';
-const BUILD_TS = '20260430162458';
+const APP_VERSION = '2026-04-30 16:50';
+const BUILD_TS = '20260430165045';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -3308,6 +3308,11 @@ function runSearch(raw) {
     return safe.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
   };
 
+  // JSON.stringify wraps the query in double-quotes which breaks onclick attributes
+  // (also delimited by double-quotes). &quot; survives HTML parsing and decodes
+  // back to " before the browser executes the JS — so the function call is valid.
+  const safeQ = JSON.stringify(raw).replace(/"/g, '&quot;');
+
   const sections = [];
   let totalHits = 0;
 
@@ -3318,7 +3323,7 @@ function runSearch(raw) {
   if (glossHits.length) {
     totalHits += glossHits.length;
     const items = glossHits.map(t => `
-      <div class="search-result" onclick="goToGlossaryTerm('${t.id}', ${JSON.stringify(raw)})">
+      <div class="search-result" onclick="goToGlossaryTerm('${t.id}', ${safeQ})">
         <div class="search-result-type">📖 Glossary</div>
         <div class="search-result-title">${hl(t.term)}</div>
         <div class="search-result-preview">${hl(t.def)}</div>
@@ -3337,7 +3342,7 @@ function runSearch(raw) {
   if (fcHits.length) {
     totalHits += fcHits.length;
     const items = fcHits.map(f => `
-      <div class="search-result" onclick="goToFlashcard('${f.id}', ${JSON.stringify(raw)})">
+      <div class="search-result" onclick="goToFlashcard('${f.id}', ${safeQ})">
         <div class="search-result-type">🃏 Flashcard</div>
         <div class="search-result-title">${hl(f.front)}</div>
         <div class="search-result-preview">${hl(f.back)}</div>
@@ -3358,7 +3363,7 @@ function runSearch(raw) {
     totalHits += qHits.length;
     const typeLabels = { mc:'Multiple Choice', tf:'True/False', fitb:'Fill-in', match:'Matching', sa:'Short Answer' };
     const items = qHits.map(q2 => `
-      <div class="search-result" onclick="goToQuizQuestion('${q2.id}', ${JSON.stringify(raw)})">
+      <div class="search-result" onclick="goToQuizQuestion('${q2.id}', ${safeQ})">
         <div class="search-result-type">❓ Quiz — ${typeLabels[q2.type]||q2.type}</div>
         <div class="search-result-title">${hl(q2.text)}</div>
         <div class="search-result-preview">Answer: ${hl(q2.answer)}</div>
@@ -3377,7 +3382,7 @@ function runSearch(raw) {
   if (noteHits.length) {
     totalHits += noteHits.length;
     const items = noteHits.map(n => `
-      <div class="search-result" onclick="goToNote('${n.id}', ${JSON.stringify(raw)})">
+      <div class="search-result" onclick="goToNote('${n.id}', ${safeQ})">
         <div class="search-result-type">📝 Note</div>
         <div class="search-result-title">${hl(n.title||'Untitled')}</div>
         <div class="search-result-preview">${hl((n.body||'').slice(0,200))}</div>

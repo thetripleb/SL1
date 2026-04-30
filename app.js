@@ -56,6 +56,7 @@ let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending = false;    // true while a save is in flight
 let _lastSyncError = null;  // last GitHub load error message for display
 let isPushing  = false;    // concurrency lock — prevents overlapping pushes
+let _searchBackQuery = null; // query stored for deep-link back-navigation from search
 
 function loadGhSettings() {
   try {
@@ -393,18 +394,30 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // NAVIGATION
 // ============================================================
 function showPage(name) {
+  // On normal sidebar navigation, clear deep-link state and hide back buttons
+  if (!showPage._fromDeepLink) {
+    _searchBackQuery = null;
+    ['glossaryBackBtn','fcBackBtn','quizBackBtn','notesBackBtn'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+  }
+  const skipRender = showPage._fromDeepLink;
+  showPage._fromDeepLink = false;
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(i => {
     if (i.getAttribute('onclick') && i.getAttribute('onclick').includes(name)) i.classList.add('active');
   });
-  if (name === 'dashboard') renderDashboard();
-  if (name === 'flashcards') renderFlashcards();
-  if (name === 'glossary') renderGlossary();
-  if (name === 'quiz') renderQuizSetup();
-  if (name === 'notes') renderNotes();
-  if (name === 'manage') renderManage();
+  if (!skipRender) {
+    if (name === 'dashboard') renderDashboard();
+    if (name === 'flashcards') renderFlashcards();
+    if (name === 'glossary') renderGlossary();
+    if (name === 'quiz') renderQuizSetup();
+    if (name === 'notes') renderNotes();
+    if (name === 'manage') renderManage();
+  }
   if (name === 'module') { /* rendered by showModuleDetail */ }
   if (name === 'search') {
     const input = document.getElementById('searchPageInput');
@@ -490,7 +503,7 @@ function renderGlossary() {
     <div class="glossary-letter-group" id="letter-${l}">
       <div class="glossary-letter-heading">${l}</div>
       ${groups[l].map(t => `
-        <div class="glossary-entry">
+        <div class="glossary-entry" id="glossary-entry-${t.id}">
           ${t.image ? `<img class="sign-img-thumb" src="${t.image}" alt="${escHtml(t.term)}" loading="lazy">` : '<div></div>'}
           <div>
           <div class="glossary-term">${t.term}</div>
@@ -849,15 +862,36 @@ let currentNoteId = null;
 function renderNotes() {
   populateModuleSelects();
   const list = document.getElementById('notesList');
+  const sq = _searchBackQuery ? _searchBackQuery.trim().toLowerCase() : null;
+  const label = document.getElementById('notesListLabel');
   if (!db.notes.length) {
     list.innerHTML = `<div class="empty-state" style="padding:1.5rem;font-size:0.85rem"><p>No notes yet.</p></div>`;
+    if (label) label.textContent = 'All Notes';
     return;
   }
-  list.innerHTML = db.notes.map(n => `
+  if (label) label.textContent = `All Notes (${db.notes.length})`;
+  list.innerHTML = db.notes.map(n => {
+    let snippet = '';
+    if (sq) {
+      const body = n.body || '';
+      const titleMatch = (n.title||'').toLowerCase().includes(sq);
+      const bodyIdx = body.toLowerCase().indexOf(sq);
+      if (bodyIdx !== -1 && !titleMatch) {
+        const start = Math.max(0, bodyIdx - 40);
+        const end = Math.min(body.length, bodyIdx + sq.length + 90);
+        const raw = body.slice(start, end);
+        const safeQ = sq.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const hl = escHtml(raw).replace(new RegExp(`(${safeQ})`, 'gi'), '<mark>$1</mark>');
+        snippet = `<div class="note-list-snippet">${start > 0 ? '…' : ''}${hl}${end < body.length ? '…' : ''}</div>`;
+      }
+    }
+    return `
     <div class="note-list-item${n.id===currentNoteId?' active':''}" onclick="openNote('${n.id}')">
       <div class="note-list-title">${escHtml(n.title||'Untitled')}</div>
       <div class="note-list-meta">${n.module?getModuleName(n.module)+' · ':''}${new Date(n.updated||n.created).toLocaleDateString()}</div>
-    </div>`).join('');
+      ${snippet}
+    </div>`;
+  }).join('');
   updateBadges();
 }
 
@@ -877,6 +911,9 @@ function openNote(id) {
   document.getElementById('noteBodyInput').value = note.body || '';
   document.getElementById('noteModuleSelect').value = note.module || '';
   renderNotes();
+  // Auto-collapse the sidebar so editor gets full height
+  const sidebar = document.getElementById('notesSidebar');
+  if (sidebar) sidebar.classList.add('collapsed');
 }
 
 function saveNote() {
@@ -1463,6 +1500,90 @@ function clearAllData() {
 }
 
 // ============================================================
+// NOTES SIDEBAR TOGGLE
+// ============================================================
+function toggleNotesList() {
+  const sidebar = document.getElementById('notesSidebar');
+  if (sidebar) sidebar.classList.toggle('collapsed');
+}
+
+// ============================================================
+// SEARCH DEEP-LINK NAVIGATION
+// ============================================================
+function returnToSearch() {
+  const q = _searchBackQuery;
+  _searchBackQuery = null;
+  ['glossaryBackBtn','fcBackBtn','quizBackBtn','notesBackBtn'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  globalSearchHandler(q || '');
+}
+
+function goToGlossaryTerm(id, q) {
+  _searchBackQuery = q;
+  const gs = document.getElementById('glossarySearch');
+  if (gs) gs.value = '';          // clear local filter so full glossary renders
+  showPage._fromDeepLink = true;
+  showPage('glossary');
+  renderGlossary();               // renders with empty filter — entry is in DOM
+  const btn = document.getElementById('glossaryBackBtn');
+  if (btn) btn.style.display = 'block';
+  setTimeout(() => {
+    const el = document.getElementById('glossary-entry-' + id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('search-highlight');
+    setTimeout(() => el.classList.remove('search-highlight'), 2500);
+  }, 80);
+}
+
+function goToFlashcard(id, q) {
+  _searchBackQuery = q;
+  showPage._fromDeepLink = true;
+  showPage('flashcards');
+  renderFlashcards();             // renders with default 'all' filter
+  const idx = db.flashcards.findIndex(f => f.id === id);
+  if (idx !== -1) {
+    fcFiltered = [...db.flashcards];
+    document.querySelectorAll('#fcFilterBar .filter-chip').forEach(c =>
+      c.classList.toggle('active', c.dataset.module === 'all')
+    );
+    fcIndex = idx;
+    renderCurrentCard();
+  }
+  const btn = document.getElementById('fcBackBtn');
+  if (btn) btn.style.display = 'block';
+}
+
+function goToQuizQuestion(id, q) {
+  _searchBackQuery = q;
+  showPage._fromDeepLink = true;
+  showPage('quiz');
+  const targetIdx = db.questions.findIndex(q2 => q2.id === id);
+  if (targetIdx === -1) { renderQuizSetup(); return; }
+  quizState = {
+    questions: [...db.questions],
+    index: targetIdx,
+    answers: Array(db.questions.length).fill(null),
+    score: 0,
+    matchSelected: null
+  };
+  renderQuestion();
+  const btn = document.getElementById('quizBackBtn');
+  if (btn) btn.style.display = 'block';
+}
+
+function goToNote(id, q) {
+  _searchBackQuery = q;
+  showPage._fromDeepLink = true;
+  showPage('notes');
+  renderNotes();
+  openNote(id);
+  const btn = document.getElementById('notesBackBtn');
+  if (btn) btn.style.display = 'block';
+}
+
+// ============================================================
 // GLOBAL SEARCH
 // ============================================================
 function globalSearchHandler(q) {
@@ -1503,7 +1624,7 @@ function runSearch(raw) {
   if (glossHits.length) {
     totalHits += glossHits.length;
     const items = glossHits.map(t => `
-      <div class="search-result" onclick="showPage('glossary'); document.getElementById('glossarySearch').value=${JSON.stringify(raw)}; renderGlossary();">
+      <div class="search-result" onclick="goToGlossaryTerm('${t.id}', ${JSON.stringify(raw)})">
         <div class="search-result-type">📖 Glossary</div>
         <div class="search-result-title">${hl(t.term)}</div>
         <div class="search-result-preview">${hl(t.def)}</div>
@@ -1522,7 +1643,7 @@ function runSearch(raw) {
   if (fcHits.length) {
     totalHits += fcHits.length;
     const items = fcHits.map(f => `
-      <div class="search-result" onclick="showPage('flashcards');">
+      <div class="search-result" onclick="goToFlashcard('${f.id}', ${JSON.stringify(raw)})">
         <div class="search-result-type">🃏 Flashcard</div>
         <div class="search-result-title">${hl(f.front)}</div>
         <div class="search-result-preview">${hl(f.back)}</div>
@@ -1543,7 +1664,7 @@ function runSearch(raw) {
     totalHits += qHits.length;
     const typeLabels = { mc:'Multiple Choice', tf:'True/False', fitb:'Fill-in', match:'Matching', sa:'Short Answer' };
     const items = qHits.map(q2 => `
-      <div class="search-result" onclick="showPage('quiz');">
+      <div class="search-result" onclick="goToQuizQuestion('${q2.id}', ${JSON.stringify(raw)})">
         <div class="search-result-type">❓ Quiz — ${typeLabels[q2.type]||q2.type}</div>
         <div class="search-result-title">${hl(q2.text)}</div>
         <div class="search-result-preview">Answer: ${hl(q2.answer)}</div>
@@ -1562,7 +1683,7 @@ function runSearch(raw) {
   if (noteHits.length) {
     totalHits += noteHits.length;
     const items = noteHits.map(n => `
-      <div class="search-result" onclick="showPage('notes'); openNote('${n.id}');">
+      <div class="search-result" onclick="goToNote('${n.id}', ${JSON.stringify(raw)})">
         <div class="search-result-type">📝 Note</div>
         <div class="search-result-title">${hl(n.title||'Untitled')}</div>
         <div class="search-result-preview">${hl((n.body||'').slice(0,200))}</div>

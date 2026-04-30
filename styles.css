@@ -817,7 +817,7 @@
     display: grid;
     grid-template-columns: 240px 1fr;
     gap: 1.5rem;
-    min-height: 500px;
+    align-items: start;
   }
 
   .notes-sidebar {
@@ -833,9 +833,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
   }
+  .notes-sidebar-header:hover { background: var(--surface-2); }
 
   .notes-sidebar-header span { font-weight: 700; font-size: 0.85rem; color: var(--text); }
+
+  /* Collapse toggle arrow */
+  .notes-toggle-arrow {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .notes-sidebar.collapsed .notes-toggle-arrow { transform: rotate(-90deg); }
+  .notes-sidebar.collapsed #notesList { display: none; }
 
   .note-list-item {
     padding: 0.75rem 1rem;
@@ -849,6 +863,22 @@
 
   .note-list-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.2rem; }
   .note-list-meta { font-size: 0.72rem; color: var(--text-light); }
+
+  /* Search snippet in notes sidebar */
+  .note-list-snippet {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+  .note-list-snippet mark {
+    background: rgba(82,183,136,0.22);
+    color: var(--text);
+    border-radius: 2px;
+    padding: 0 1px;
+    font-style: normal;
+  }
 
   .note-editor {
     background: var(--surface);
@@ -892,6 +922,33 @@
     flex: 1;
     resize: none;
     min-height: 400px;
+  }
+
+  /* ── Search deep-link back button ── */
+  .search-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 0.65rem;
+    transition: all 0.15s;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+  .search-back-btn:hover { border-color: var(--accent-light); color: var(--accent); background: var(--tag-bg); }
+
+  /* ── Glossary search-result highlight ── */
+  .glossary-entry.search-highlight { animation: gloss-hl 2.5s ease-out forwards; border-radius: 6px; }
+  @keyframes gloss-hl {
+    0%   { background: rgba(82,183,136,0.22); }
+    70%  { background: rgba(82,183,136,0.08); }
+    100% { background: transparent; }
   }
 
   /* MANAGE */

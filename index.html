@@ -1856,6 +1856,7 @@
 </div>
 
 <script>
+<script>
 // ============================================================
 // DATA STORE — separate localStorage key from SLP repo
 // ============================================================
@@ -1878,9 +1879,10 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2.1';
-let _lastSyncError = null;
+const APP_VERSION = '2026-04-30 16:13';
+const BUILD_TS = '20260430161356';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
+let _lastSyncError = null;
 
 function loadGhSettings() {
   try {
@@ -2184,7 +2186,6 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // NAVIGATION
 // ============================================================
 function showPage(name) {
-  // On normal sidebar navigation, clear deep-link state and hide back buttons
   if (!showPage._fromDeepLink) {
     _searchBackQuery = null;
     ['glossaryBackBtn','fcBackBtn','quizBackBtn','notesBackBtn'].forEach(id => {
@@ -2696,7 +2697,6 @@ function openNote(id) {
   document.getElementById('noteBodyInput').value = note.body || '';
   document.getElementById('noteModuleSelect').value = note.module || '';
   renderNotes();
-  // Auto-collapse the sidebar so editor gets full height
   const sidebar = document.getElementById('notesSidebar');
   if (sidebar) sidebar.classList.add('collapsed');
 }
@@ -2905,6 +2905,29 @@ function readImportFile(file) {
   reader.readAsText(file);
 }
 
+// ── Dedup helpers ─────────────────────────────────────────────────────────────
+function isDupGlossary(t) {
+  const termLc = (t.term||'').toLowerCase().trim();
+  return db.glossary.some(x => x.id === t.id || (x.term||'').toLowerCase().trim() === termLc);
+}
+function isDupFlashcard(f) {
+  const frontLc = (f.front||'').toLowerCase().trim().slice(0,80);
+  return db.flashcards.some(x => x.id === f.id || (x.front||'').toLowerCase().trim().slice(0,80) === frontLc);
+}
+function isDupQuestion(q) {
+  const textLc = (q.text||'').toLowerCase().trim().slice(0,80);
+  return db.questions.some(x => x.id === q.id || (x.text||'').toLowerCase().trim().slice(0,80) === textLc);
+}
+function isDupNote(n) {
+  const titleLc = (n.title||'').toLowerCase().trim();
+  return db.notes.some(x => x.id === n.id || (x.title||'').toLowerCase().trim() === titleLc);
+}
+
+function dedupStats(arr, dupFn) {
+  const dups = arr.filter(dupFn).length;
+  return { total: arr.length, dups, newCount: arr.length - dups };
+}
+
 function showImportPreview(data) {
   const preview = document.getElementById('importPreview');
   const content = document.getElementById('importPreviewContent');
@@ -2918,47 +2941,97 @@ function showImportPreview(data) {
     return;
   }
 
+  // ── Dedup analysis ──────────────────────────────────────────────────────────
+  const stats = {};
+  if (data.glossary?.length)   stats.glossary   = dedupStats(data.glossary,   isDupGlossary);
+  if (data.flashcards?.length) stats.flashcards = dedupStats(data.flashcards, isDupFlashcard);
+  if (data.questions?.length)  stats.questions  = dedupStats(data.questions,  isDupQuestion);
+  if (data.notes?.length)      stats.notes      = dedupStats(data.notes,      isDupNote);
+
+  const totalNew  = Object.values(stats).reduce((s,v) => s + v.newCount, 0);
+  const totalDups = Object.values(stats).reduce((s,v) => s + v.dups, 0);
+  const totalAll  = Object.values(stats).reduce((s,v) => s + v.total, 0);
+
+  // ── Build sections ──────────────────────────────────────────────────────────
   const sections = [];
-  if (isFullBackup && data.modules?.length) sections.push(previewSection('📁 Modules', data.modules, m => m.name, data.modules.length));
-  if (data.glossary?.length) sections.push(previewSection('📖 Glossary Terms', data.glossary, t => `<strong>${escHtml(t.term)}</strong> — ${escHtml(t.def?.slice(0,80))}${t.def?.length>80?'…':''}`, data.glossary.length));
-  if (data.flashcards?.length) sections.push(previewSection('🃏 Flashcards', data.flashcards, f => escHtml(f.front?.slice(0,80)), data.flashcards.length));
+  if (isFullBackup && data.modules?.length) sections.push(previewSection('📁 Modules', data.modules, m => m.name, data.modules.length, null));
+  if (data.glossary?.length)   sections.push(previewSection('📖 Glossary Terms', data.glossary,   t => `<strong>${escHtml(t.term)}</strong> — ${escHtml(t.def?.slice(0,80))}${t.def?.length>80?'…':''}`, data.glossary.length,   stats.glossary,   isDupGlossary));
+  if (data.flashcards?.length) sections.push(previewSection('🃏 Flashcards',     data.flashcards, f => escHtml(f.front?.slice(0,80)),                                                                                            data.flashcards.length, stats.flashcards, isDupFlashcard));
   if (data.questions?.length) {
     const typeLabels = {mc:'MC',tf:'T/F',fitb:'Fill-in',match:'Match',sa:'Short Answer'};
-    sections.push(previewSection('❓ Quiz Questions', data.questions, q => `<span class="tag neutral">${typeLabels[q.type]||q.type}</span> ${escHtml(q.text?.slice(0,70))}`, data.questions.length));
+    sections.push(previewSection('❓ Quiz Questions', data.questions, q => `<span class="tag neutral">${typeLabels[q.type]||q.type}</span> ${escHtml(q.text?.slice(0,70))}`, data.questions.length, stats.questions, isDupQuestion));
   }
-  if (data.notes?.length) sections.push(previewSection('📝 Notes', data.notes, n => escHtml(n.title||'Untitled'), data.notes.length));
+  if (data.notes?.length) sections.push(previewSection('📝 Notes', data.notes, n => escHtml(n.title||'Untitled'), data.notes.length, stats.notes, isDupNote));
 
   if (!sections.length) { content.innerHTML = `<div style="color:var(--text-muted);font-size:0.9rem">This file appears empty — nothing to import.</div>`; return; }
 
-  // Populate module picker for content imports
+  // ── Summary banner ──────────────────────────────────────────────────────────
+  let modeBadge, summaryBanner;
+  if (isFullBackup) {
+    modeBadge = '<span style="background:#fff3e0;color:#8b4a0e;padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">FULL BACKUP — will REPLACE all data</span>';
+    summaryBanner = '';
+  } else {
+    modeBadge = '<span style="background:var(--tag-bg);color:var(--tag-text);padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">CONTENT IMPORT — will MERGE with existing data</span>';
+    const dupNote = totalDups > 0
+      ? `<span style="color:#8b4a0e"> · <strong>${totalDups}</strong> already exist and will be skipped</span>`
+      : `<span style="color:var(--accent)"> · No duplicates found ✓</span>`;
+    summaryBanner = `<div style="background:var(--surface-2);border-radius:8px;padding:0.75rem 1rem;margin:0.75rem 0;font-size:0.85rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+      <strong>${totalNew}</strong> new items will be added out of ${totalAll} total${dupNote}
+    </div>`;
+  }
+
+  // ── Module + Chapter assignment panel ───────────────────────────────────────
   const assignPanel = document.getElementById('importModuleAssign');
   if (!isFullBackup && assignPanel) {
     const sel = document.getElementById('importModuleSelect');
     sel.innerHTML = '<option value="">— No Module (import as-is) —</option>' +
       db.modules.map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
-    // Pre-select suggested module from meta_import if it matches
+    // Pre-select suggested module from meta_import if present
     const suggested = data.meta_import?.suggested_module_id;
     if (suggested) {
       const match = db.modules.find(m => m.id === suggested || m.name.toLowerCase() === (data.meta_import?.suggested_module||'').toLowerCase());
       if (match) sel.value = match.id;
     }
+    // Pre-fill chapter field from import meta if present
+    const chapterField = document.getElementById('importChapterInput');
+    if (chapterField && data.meta_import?.chapter) chapterField.value = data.meta_import.chapter;
     assignPanel.style.display = 'flex';
   } else if (assignPanel) {
     assignPanel.style.display = 'none';
   }
 
-  const mode = isFullBackup
-    ? '<span style="background:#fff3e0;color:#8b4a0e;padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">FULL BACKUP — will REPLACE all data</span>'
-    : '<span style="background:var(--tag-bg);color:var(--tag-text);padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">CONTENT IMPORT — will MERGE with existing data</span>';
-
-  content.innerHTML = `<div style="margin-bottom:1rem">${mode}</div>` + sections.join('');
+  content.innerHTML = `<div style="margin-bottom:0.5rem">${modeBadge}</div>${summaryBanner}` + sections.join('');
 }
 
-function previewSection(title, items, labelFn, count) {
-  const preview = items.slice(0, 3).map(item => `<div style="padding:0.4rem 0;font-size:0.85rem;border-bottom:1px solid var(--surface-2)">${labelFn(item)}</div>`).join('');
-  const more = count > 3 ? `<div style="font-size:0.78rem;color:var(--text-light);padding:0.4rem 0">+ ${count - 3} more…</div>` : '';
+function previewSection(title, items, labelFn, count, stats, dupFn) {
+  // Show up to 3 NEW items first, then fall back to any items if all are dups
+  const newItems  = dupFn ? items.filter(x => !dupFn(x)) : items;
+  const showItems = newItems.length ? newItems.slice(0, 3) : items.slice(0, 3);
+  const preview   = showItems.map(item => {
+    const isDup = dupFn ? dupFn(item) : false;
+    return `<div style="padding:0.4rem 0;font-size:0.85rem;border-bottom:1px solid var(--surface-2);
+      ${isDup ? 'opacity:0.45;text-decoration:line-through' : ''}">${labelFn(item)}
+      ${isDup ? '<span style="font-size:0.7rem;color:var(--text-muted);text-decoration:none;margin-left:0.4rem">(duplicate)</span>' : ''}
+    </div>`;
+  }).join('');
+
+  let countLabel;
+  if (stats) {
+    const newBadge = `<span style="background:#d4edda;color:#155724;padding:1px 6px;border-radius:8px;font-size:0.7rem;font-weight:700">${stats.newCount} new</span>`;
+    const dupBadge = stats.dups > 0
+      ? `<span style="background:#f8d7da;color:#721c24;padding:1px 6px;border-radius:8px;font-size:0.7rem;font-weight:700">${stats.dups} dup</span>`
+      : '';
+    countLabel = `${newBadge} ${dupBadge}`;
+  } else {
+    countLabel = `<span style="font-weight:400;color:var(--text-muted)">(${count})</span>`;
+  }
+
+  const more = newItems.length > 3
+    ? `<div style="font-size:0.78rem;color:var(--text-light);padding:0.4rem 0">+ ${newItems.length - 3} more new…</div>`
+    : (newItems.length === 0 && count > 3 ? `<div style="font-size:0.78rem;color:var(--text-muted);padding:0.4rem 0">All ${count} items already exist</div>` : '');
+
   return `<div style="margin-bottom:1rem">
-    <div style="font-weight:700;font-size:0.88rem;margin-bottom:0.4rem">${title} <span style="font-weight:400;color:var(--text-muted)">(${count} items)</span></div>
+    <div style="font-weight:700;font-size:0.88rem;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem">${title} ${countLabel}</div>
     ${preview}${more}
   </div>`;
 }
@@ -2972,19 +3045,58 @@ function confirmImport() {
     if (!confirm('This will REPLACE all your current data with the backup. Are you sure?')) return;
     db = data;
   } else {
-    // Get selected target module (if any)
-    const targetMod = document.getElementById('importModuleSelect')?.value || '';
-    // Create module from suggested_module if it was in the JSON and doesn't exist yet
-    if (targetMod === '' && data.meta_import?.suggested_module) {
-      // user chose no module — respect that
-    }
-    const applyMod = (item) => targetMod ? { ...item, module: targetMod } : item;
+    const targetMod     = document.getElementById('importModuleSelect')?.value || '';
+    const targetChapter = (document.getElementById('importChapterInput')?.value || '').trim();
+
+    // Apply module and/or chapter overrides if set
+    const applyAssignment = (item) => {
+      const out = { ...item };
+      if (targetMod)     out.module  = targetMod;
+      if (targetChapter) out.chapter = targetChapter;
+      return out;
+    };
+
+    let added = 0, skipped = 0;
 
     if (data.modules) data.modules.forEach(m => { if (!db.modules.find(x => x.id === m.id)) db.modules.push(m); });
-    if (data.glossary) { data.glossary.forEach(t => { if (!db.glossary.find(x => x.id === t.id)) db.glossary.push(applyMod(t)); }); db.glossary.sort((a,b) => a.term.localeCompare(b.term)); }
-    if (data.flashcards) data.flashcards.forEach(f => { if (!db.flashcards.find(x => x.id === f.id)) db.flashcards.push(applyMod(f)); });
-    if (data.questions) data.questions.forEach(q => { if (!db.questions.find(x => x.id === q.id)) db.questions.push(applyMod(q)); });
-    if (data.notes) data.notes.forEach(n => { if (!db.notes.find(x => x.id === n.id)) db.notes.unshift(applyMod(n)); });
+
+    if (data.glossary) {
+      data.glossary.forEach(t => {
+        if (isDupGlossary(t)) { skipped++; return; }
+        db.glossary.push(applyAssignment(t)); added++;
+      });
+      db.glossary.sort((a,b) => (a.term||'').localeCompare(b.term||''));
+    }
+    if (data.flashcards) {
+      data.flashcards.forEach(f => {
+        if (isDupFlashcard(f)) { skipped++; return; }
+        db.flashcards.push(applyAssignment(f)); added++;
+      });
+    }
+    if (data.questions) {
+      data.questions.forEach(q => {
+        if (isDupQuestion(q)) { skipped++; return; }
+        db.questions.push(applyAssignment(q)); added++;
+      });
+    }
+    if (data.notes) {
+      data.notes.forEach(n => {
+        if (isDupNote(n)) { skipped++; return; }
+        db.notes.unshift(applyAssignment(n)); added++;
+      });
+    }
+
+    save();
+    pendingImport = null;
+    document.getElementById('importPreview').style.display = 'none';
+    document.getElementById('claudeImportFile').value = '';
+    const assignPanel = document.getElementById('importModuleAssign');
+    if (assignPanel) assignPanel.style.display = 'none';
+    renderDashboard(); renderManage(); updateBadges();
+    checkDataAndShowPrompts();
+    const skipNote = skipped > 0 ? `\n${skipped} duplicate${skipped>1?'s were':' was'} skipped.` : '';
+    alert(`✓ Import complete — ${added} item${added!==1?'s':''} added.${skipNote}`);
+    return;
   }
 
   save();
@@ -3081,6 +3193,7 @@ function clearAllData() {
 }
 
 // ============================================================
+// ============================================================
 // NOTES SIDEBAR TOGGLE
 // ============================================================
 function toggleNotesList() {
@@ -3102,12 +3215,11 @@ function returnToSearch() {
 
 function goToGlossaryTerm(id, q) {
   _searchBackQuery = q;
-  // Clear glossary local filter so the full list renders and our entry exists in DOM
   const gs = document.getElementById('glossarySearch');
   if (gs) gs.value = '';
   showPage._fromDeepLink = true;
   showPage('glossary');
-  renderGlossary();  // now runs with empty filter
+  renderGlossary();
   const btn = document.getElementById('glossaryBackBtn');
   if (btn) btn.style.display = 'block';
   setTimeout(() => {
@@ -3123,11 +3235,10 @@ function goToFlashcard(id, q) {
   _searchBackQuery = q;
   showPage._fromDeepLink = true;
   showPage('flashcards');
-  renderFlashcards();  // renders with default 'all' filter
+  renderFlashcards();
   const idx = db.flashcards.findIndex(f => f.id === id);
   if (idx !== -1) {
     fcFiltered = [...db.flashcards];
-    // Reset filter chips to 'all'
     document.querySelectorAll('#fcFilterBar .filter-chip').forEach(c =>
       c.classList.toggle('active', c.dataset.module === 'all')
     );
@@ -3168,6 +3279,7 @@ function goToNote(id, q) {
 
 // ============================================================
 // GLOBAL SEARCH
+// ============================================================
 // ============================================================
 function globalSearchHandler(q) {
   showPage('search');

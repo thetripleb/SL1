@@ -1464,6 +1464,221 @@
   .gh-status-bar.error        { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
   .gh-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
+  /* ===== STATISTICS ===== */
+  .stats-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  @media (max-width: 900px) { .stats-summary-grid { grid-template-columns: repeat(3, 1fr); } }
+
+  .stats-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .stats-controls select {
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.88rem;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    font-family: inherit;
+  }
+
+  .stats-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .stats-table-header {
+    display: grid;
+    grid-template-columns: 3fr 0.65fr 1fr 0.55fr 0.55fr 0.55fr 1.3fr;
+    background: var(--surface-2);
+    padding: 0.65rem 1rem;
+    font-size: 0.69rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .stats-table-row {
+    display: grid;
+    grid-template-columns: 3fr 0.65fr 1fr 0.55fr 0.55fr 0.55fr 1.3fr;
+    padding: 0.7rem 1rem;
+    border-top: 1px solid var(--surface-2);
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.84rem;
+    transition: background 0.12s;
+  }
+  .stats-table-row:hover { background: var(--tag-bg); }
+  .stats-table-row.stats-unseen { opacity: 0.5; }
+  .stats-q-text { color: var(--text); line-height: 1.4; }
+  .stats-num { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; text-align: center; font-weight: 600; }
+  .stats-acc-bar {
+    height: 5px;
+    background: var(--surface-2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 3px;
+    min-width: 50px;
+  }
+  .stats-acc-bar > div { height: 100%; border-radius: 3px; }
+
+  /* ===== FINAL EXAM PREP ===== */
+  .fep-setup { max-width: 500px; }
+
+  .fep-exam-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--tag-bg);
+    border: 1px solid var(--accent-light);
+    border-radius: var(--radius);
+    font-size: 0.88rem;
+    color: var(--tag-text);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .fep-question-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow);
+  }
+  .fep-q-num {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-light);
+    margin-bottom: 0.5rem;
+  }
+  .fep-q-text {
+    font-size: 1.02rem;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 1.25rem;
+    color: var(--text);
+  }
+  .fep-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.13s;
+    font-size: 0.9rem;
+    background: var(--surface);
+    user-select: none;
+  }
+  .fep-option:hover { border-color: var(--accent-light); background: var(--tag-bg); }
+  .fep-option input[type=radio] { accent-color: var(--accent); flex-shrink: 0; }
+  .fep-option.fep-selected { border-color: var(--accent); background: var(--tag-bg); }
+
+  .fep-tf-options { display: flex; gap: 1rem; }
+  .fep-tf-options .fep-option { flex: 1; justify-content: center; font-weight: 700; font-size: 1rem; }
+
+  .fep-match-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    font-size: 0.69rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+    padding: 0 0.25rem;
+  }
+  .fep-match-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 0.45rem;
+  }
+  .fep-match-term {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    padding: 0.4rem 0.25rem;
+    line-height: 1.35;
+  }
+  .fep-match-select {
+    padding: 0.48rem 0.7rem;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.84rem;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    width: 100%;
+    font-family: inherit;
+    transition: border-color 0.13s;
+    cursor: pointer;
+  }
+  .fep-match-select:focus { border-color: var(--accent-light); }
+
+  /* FEP Review */
+  .fep-review-header {
+    font-family: 'Outfit', serif;
+    font-size: 1.2rem;
+    font-weight: 400;
+    margin: 1.75rem 0 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--text);
+  }
+  .fep-review-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 0.9rem;
+  }
+  .fep-review-item.fep-r-correct { border-left: 4px solid var(--success); background: #f0fdf4; }
+  .fep-review-item.fep-r-incorrect { border-left: 4px solid var(--danger); background: #fef2f2; }
+  .fep-review-indicator {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .fep-review-indicator.ri-correct { color: var(--success); }
+  .fep-review-indicator.ri-incorrect { color: var(--danger); }
+  .fep-review-qtext { font-weight: 600; font-size: 0.92rem; margin-bottom: 0.6rem; line-height: 1.4; color: var(--text); }
+  .fep-review-answer { font-size: 0.86rem; line-height: 1.5; }
+  .fep-match-review-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+    border-top: 1px solid var(--surface-2);
+    font-size: 0.83rem;
+    align-items: start;
+  }
+  .fep-match-review-row:first-child { border-top: none; }
+
 </style>
 </head>
 <body>
@@ -1520,6 +1735,14 @@
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
         Practice Quiz
         <span class="badge" id="quizBadge">0</span>
+      </div>
+      <div class="nav-item" onclick="showPage('stats')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Statistics
+      </div>
+      <div class="nav-item" onclick="showPage('fep')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        Final Exam Prep
       </div>
       <div class="nav-item" onclick="showPage('glossary')">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -1790,6 +2013,28 @@
         </div>
       </div>
     </div>
+
+    <!-- STATISTICS -->
+    <div class="page" id="page-stats">
+      <div class="page-header">
+        <h2>Statistics</h2>
+        <p>Question performance tracking — weighted toward your weak areas</p>
+      </div>
+      <div id="statsContent">
+        <div class="empty-state"><div class="icon">📊</div><p>Start a Practice Quiz or Final Exam Prep to begin tracking question performance.</p></div>
+      </div>
+    </div>
+
+    <!-- FINAL EXAM PREP -->
+    <div class="page" id="page-fep">
+      <div class="page-header">
+        <h2>Final Exam Prep</h2>
+        <p>Full-length practice exam — True/False, Multiple Choice, and Matching</p>
+      </div>
+      <div id="fepContent">
+        <div class="empty-state"><div class="icon">🎓</div><p>Loading…</p></div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -1881,7 +2126,8 @@ let db = {
   glossary: [],
   flashcards: [],
   questions: [],
-  notes: []
+  notes: [],
+  questionStats: {}
 };
 
 const STORAGE_KEY = 'sl1_repo';
@@ -1894,8 +2140,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-04-30 16:59';
-const BUILD_TS = '20260430165931';
+const APP_VERSION = '2026-05-07 17:52';
+const BUILD_TS = '20260507175230';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -2036,7 +2282,7 @@ async function load() {
   // Always load from localStorage first so UI is instant
   try {
     const d = localStorage.getItem('sl1_repo');
-    if (d) db = JSON.parse(d);
+    if (d) db = normalizeDb(JSON.parse(d));
   } catch(e) {}
 
   if (!ghConfigured()) {
@@ -2073,7 +2319,7 @@ async function load() {
       }
 
       const remote = JSON.parse(jsonText);
-      db = remote;
+      db = normalizeDb(remote);
       try { localStorage.setItem('sl1_repo', JSON.stringify(db)); } catch(e) {}
       _lastSyncError = null;
       setSyncStatus('saved', 'Loaded from GitHub');
@@ -2223,6 +2469,8 @@ function showPage(name) {
     if (name === 'quiz') renderQuizSetup();
     if (name === 'notes') renderNotes();
     if (name === 'manage') renderManage();
+    if (name === 'stats') renderStats();
+    if (name === 'fep')   renderFEPSetup();
   }
   if (name === 'module') { /* rendered by showModuleDetail */ }
   if (name === 'search') {
@@ -2465,8 +2713,8 @@ function startQuiz() {
   if (!types.length) return alert('Select at least one question type.');
   let pool = db.questions.filter(q => (mod==='all' || q.module===mod) && types.includes(q.type));
   if (!pool.length) return alert('No questions match your filters.');
-  pool = pool.sort(() => Math.random()-0.5).slice(0, Math.min(count, pool.length));
-  quizState = { questions: pool, index: 0, answers: [], score: 0, matchSelected: null };
+  const selected = weightedSelectQuestions(pool, Math.min(count, pool.length));
+  quizState = { questions: selected, index: 0, answers: [], score: 0, matchSelected: null };
   renderQuestion();
 }
 
@@ -2521,6 +2769,8 @@ function showFeedback(correct, correctAns) {
   fb.innerHTML = correct ? '✓ Correct!' : `✗ Incorrect. Correct answer: <strong>${escHtml(correctAns)}</strong>`;
   document.getElementById('nextBtn').style.display = 'inline-flex';
   if (correct) quizState.score++;
+  const q = quizState.questions[quizState.index];
+  if (q) { trackQuestion(q.id, correct); save(); }
 }
 
 function showNeutralFeedback(ans) {
@@ -2528,6 +2778,9 @@ function showNeutralFeedback(ans) {
   fb.className = 'feedback-box show neutral';
   fb.innerHTML = `<strong>Model Answer:</strong> ${escHtml(ans)}`;
   document.getElementById('nextBtn').style.display = 'inline-flex';
+  // SA: count as asked but not graded correct/incorrect
+  const q = quizState.questions[quizState.index];
+  if (q) { trackQuestion(q.id, null); save(); }
 }
 
 function selectMC(i) {
@@ -3202,7 +3455,7 @@ function bulkAssign(section, mode) {
 
 function clearAllData() {
   if (!confirm('Delete ALL data permanently? This cannot be undone.')) return;
-  db = { meta: { ...db.meta, created: db.meta.created }, modules: [], glossary: [], flashcards: [], questions: [], notes: [] };
+  db = { meta: { ...db.meta, created: db.meta.created }, modules: [], glossary: [], flashcards: [], questions: [], notes: [], questionStats: {} };
   save(); renderDashboard(); renderManage(); updateBadges();
   alert('All data cleared.');
 }
@@ -3417,6 +3670,442 @@ function runSearch(raw) {
   results.innerHTML = sections.length
     ? sections.join('')
     : `<div class="search-prompt"><div class="icon">🔍</div><p>No results found for "<strong>${escHtml(raw)}</strong>".<br>Try a different term or check your spelling.</p></div>`;
+}
+
+// ============================================================
+// QUESTION STATS & WEIGHTING
+// ============================================================
+function normalizeDb(data) {
+  if (!data.questionStats) data.questionStats = {};
+  if (!data.modules)    data.modules    = [];
+  if (!data.glossary)   data.glossary   = [];
+  if (!data.flashcards) data.flashcards = [];
+  if (!data.questions)  data.questions  = [];
+  if (!data.notes)      data.notes      = [];
+  return data;
+}
+
+function trackQuestion(id, correct) {
+  if (!db.questionStats) db.questionStats = {};
+  if (!db.questionStats[id]) db.questionStats[id] = { asked: 0, correct: 0, incorrect: 0 };
+  db.questionStats[id].asked++;
+  if (correct === true)  db.questionStats[id].correct++;
+  if (correct === false) db.questionStats[id].incorrect++;
+}
+
+// Weighted random pick without replacement — questions answered more wrong get higher probability
+function weightedPick(items, n) {
+  if (!items.length || n <= 0) return [];
+  const stats = db.questionStats || {};
+  const pool  = [...items];
+  const picked = [];
+  for (let i = 0; i < Math.min(n, pool.length); i++) {
+    const weights = pool.map(q => {
+      const s = stats[q.id] || { asked: 0, incorrect: 0 };
+      return (s.incorrect + 1) / (s.asked + 1);
+    });
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total, idx = pool.length - 1;
+    for (let j = 0; j < weights.length; j++) { r -= weights[j]; if (r <= 0) { idx = j; break; } }
+    picked.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+  return picked;
+}
+
+// Phase-1: show all unseen questions first; phase-2: weight toward wrong answers
+function weightedSelectQuestions(pool, count) {
+  const stats   = db.questionStats || {};
+  const unseen  = pool.filter(q => !stats[q.id] || stats[q.id].asked === 0);
+  const seen    = pool.filter(q => stats[q.id]  && stats[q.id].asked  > 0);
+  const shuffled = unseen.sort(() => Math.random() - 0.5);
+  if (shuffled.length >= count) return shuffled.slice(0, count);
+  return [...shuffled, ...weightedPick(seen, count - shuffled.length)];
+}
+
+// ============================================================
+// STATISTICS PAGE
+// ============================================================
+function renderStats() {
+  const el = document.getElementById('statsContent');
+  if (!el) return;
+  const stats = db.questionStats || {};
+  const allQs = db.questions;
+
+  if (!allQs.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>No quiz questions yet. Add some questions, then start a quiz or Final Exam Prep to track performance.</p></div>`;
+    return;
+  }
+
+  // Summary totals across ALL questions
+  let totalAsked = 0, totalCorrect = 0, totalIncorrect = 0;
+  Object.values(stats).forEach(s => { totalAsked += s.asked; totalCorrect += s.correct; totalIncorrect += s.incorrect; });
+  const overallAcc  = totalAsked > 0 ? Math.round((totalCorrect / totalAsked) * 100) : null;
+  const seenCount   = allQs.filter(q => stats[q.id]?.asked > 0).length;
+
+  // Module filter
+  const savedMod = document.getElementById('statsModFilter')?.value || 'all';
+  const modOpts  = '<option value="all">All Modules</option>' + db.modules.map(m => `<option value="${m.id}"${m.id===savedMod?' selected':''}>${escHtml(m.name)}</option>`).join('');
+
+  let filtered = savedMod === 'all' ? allQs : allQs.filter(q => q.module === savedMod);
+
+  // Sort by difficulty: most incorrect ratio first, then unseen last
+  filtered = [...filtered].sort((a, b) => {
+    const sa = stats[a.id] || { asked: 0, incorrect: 0 };
+    const sb = stats[b.id] || { asked: 0, incorrect: 0 };
+    if (sa.asked === 0 && sb.asked  > 0) return  1;
+    if (sa.asked  > 0 && sb.asked === 0) return -1;
+    return (sb.incorrect / (sb.asked || 1)) - (sa.incorrect / (sa.asked || 1));
+  });
+
+  const typeLabels = { mc:'MC', tf:'T/F', fitb:'Fill-in', match:'Match', sa:'SA' };
+
+  el.innerHTML = `
+    <div class="stats-summary-grid">
+      <div class="stat-card"><div class="number">${totalAsked}</div><div class="label">Times Answered</div></div>
+      <div class="stat-card"><div class="number">${totalCorrect}</div><div class="label">Correct</div></div>
+      <div class="stat-card"><div class="number">${totalIncorrect}</div><div class="label">Incorrect</div></div>
+      <div class="stat-card"><div class="number">${overallAcc !== null ? overallAcc + '%' : '—'}</div><div class="label">Accuracy</div></div>
+      <div class="stat-card"><div class="number">${seenCount}<span style="font-size:1.1rem;color:var(--text-muted)">/${allQs.length}</span></div><div class="label">Questions Seen</div></div>
+    </div>
+
+    <div class="stats-controls">
+      <select id="statsModFilter" onchange="renderStats()">${modOpts}</select>
+      <button class="btn btn-secondary btn-sm" onclick="resetStats()">🗑 Reset All Stats</button>
+      <span style="font-size:0.8rem;color:var(--text-muted);margin-left:auto">Sorted: most missed first · Unseen questions shown at bottom</span>
+    </div>
+
+    <div class="stats-table-wrap">
+      <div class="stats-table-header">
+        <div>Question</div><div>Type</div><div>Module</div>
+        <div style="text-align:center">Asked</div><div style="text-align:center">✓</div><div style="text-align:center">✗</div>
+        <div>Accuracy</div>
+      </div>
+      ${filtered.map(q => {
+        const s   = stats[q.id] || { asked: 0, correct: 0, incorrect: 0 };
+        const acc = s.asked > 0 ? Math.round((s.correct / s.asked) * 100) : null;
+        const barColor = acc === null ? '#ccc' : acc >= 80 ? 'var(--success)' : acc >= 55 ? '#f39c12' : 'var(--danger)';
+        const modName  = q.module ? escHtml(getModuleName(q.module)) : '—';
+        return `<div class="stats-table-row${s.asked === 0 ? ' stats-unseen' : ''}">
+          <div class="stats-q-text">${escHtml(q.text.slice(0, 90))}${q.text.length > 90 ? '…' : ''}</div>
+          <div><span class="tag neutral">${typeLabels[q.type] || q.type}</span></div>
+          <div style="font-size:0.78rem;color:var(--text-muted)">${modName}</div>
+          <div class="stats-num">${s.asked || '—'}</div>
+          <div class="stats-num" style="color:var(--success)">${s.correct || (s.asked ? 0 : '—')}</div>
+          <div class="stats-num" style="color:var(--danger)">${s.incorrect || (s.asked ? 0 : '—')}</div>
+          <div>
+            ${acc !== null
+              ? `<div class="stats-acc-bar"><div style="width:${acc}%;background:${barColor}"></div></div><span style="font-size:0.76rem;font-weight:700;color:${barColor}">${acc}%</span>`
+              : `<span style="font-size:0.76rem;color:var(--text-light)">Not yet seen</span>`}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function resetStats() {
+  if (!confirm('Reset all question statistics? This cannot be undone.')) return;
+  db.questionStats = {};
+  save();
+  renderStats();
+}
+
+// ============================================================
+// FINAL EXAM PREP
+// ============================================================
+let fepState = { questions: [], answers: {}, submitted: false, results: [], score: 0 };
+
+function renderFEPSetup() {
+  const el = document.getElementById('fepContent');
+  if (!el) return;
+  const hasContent = db.questions.length || db.glossary.length;
+  if (!hasContent) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🎓</div><p>No study content yet. Import course material or add questions and glossary terms first.</p></div>`;
+    return;
+  }
+  const modOpts = '<option value="all">All Modules</option>' + db.modules.map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
+  el.innerHTML = `
+    <div class="fep-setup">
+      <div class="quiz-form-group">
+        <label>Module / Week</label>
+        <select id="fepModFilter">${modOpts}</select>
+      </div>
+      <div class="quiz-form-group">
+        <label>Question Types</label>
+        <div class="quiz-type-grid">
+          <label class="quiz-type-option"><input type="checkbox" value="mc"    checked class="feptypecheck"> Multiple Choice</label>
+          <label class="quiz-type-option"><input type="checkbox" value="tf"    checked class="feptypecheck"> True / False</label>
+          <label class="quiz-type-option"><input type="checkbox" value="match" checked class="feptypecheck"> Matching</label>
+        </div>
+      </div>
+      <div class="quiz-form-group">
+        <label>Number of Questions</label>
+        <input type="number" id="fepCount" value="50" min="5" max="200">
+      </div>
+      <button class="btn btn-primary" onclick="startFEP()">Start Final Exam Prep →</button>
+      <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.75rem;line-height:1.6">
+        Matching includes glossary terms and quiz matching questions.
+        Questions weighted toward topics you've answered incorrectly.
+        All questions seen once before weighting begins.
+      </p>
+    </div>`;
+}
+
+function startFEP() {
+  const mod   = document.getElementById('fepModFilter').value;
+  const count = parseInt(document.getElementById('fepCount').value) || 50;
+  const types = [...document.querySelectorAll('.feptypecheck:checked')].map(c => c.value);
+  if (!types.length) return alert('Select at least one question type.');
+  const qs = buildFEPQuestions(mod, types, count);
+  if (!qs.length) return alert('Not enough content for an exam with those settings. Try "All Modules" or add more questions and glossary terms.');
+  fepState = { questions: qs, answers: {}, submitted: false, results: [], score: 0 };
+  renderFEPExam();
+}
+
+function buildFEPQuestions(moduleId, types, count) {
+  const pool = [];
+
+  // T/F and MC from db.questions
+  if (types.includes('tf') || types.includes('mc')) {
+    db.questions.forEach(q => {
+      if (moduleId !== 'all' && q.module !== moduleId) return;
+      if ((q.type === 'tf' && types.includes('tf')) || (q.type === 'mc' && types.includes('mc'))) {
+        pool.push({ ...q, _fepSrc: 'quiz' });
+      }
+    });
+  }
+
+  // Matching: existing match questions + glossary-based blocks
+  if (types.includes('match')) {
+    db.questions.forEach(q => {
+      if (q.type !== 'match') return;
+      if (moduleId !== 'all' && q.module !== moduleId) return;
+      pool.push({ ...q, _fepSrc: 'quiz' });
+    });
+
+    // Build glossary matching blocks (5 terms per block)
+    let terms = db.glossary.filter(t => moduleId === 'all' || t.module === moduleId);
+    terms = terms.sort(() => Math.random() - 0.5);
+    for (let i = 0; i < terms.length; i += 5) {
+      const block = terms.slice(i, Math.min(i + 5, terms.length));
+      if (block.length < 2) continue;
+      // Stable block ID based on sorted term IDs so weighting persists across sessions
+      const blockId = 'gloss_match_' + block.map(t => t.id).sort().join('_').slice(0, 60);
+      pool.push({
+        id: blockId,
+        type: 'match',
+        text: 'Match each term to its correct definition:',
+        pairs: block.map(t => [t.term, t.def]),
+        _termIds: block.map(t => t.id),
+        _fepSrc: 'glossary',
+        module: block[0].module || ''
+      });
+    }
+  }
+
+  if (!pool.length) return [];
+  return weightedSelectQuestions(pool, Math.min(count, pool.length));
+}
+
+function renderFEPExam() {
+  const el = document.getElementById('fepContent');
+  const { questions } = fepState;
+  const typeLabel = { mc: 'Multiple Choice', tf: 'True / False', match: 'Matching' };
+
+  let html = `<div class="fep-exam-header">
+    <strong>${questions.length} questions</strong>
+    <span>Answer all questions, then click Submit to see your results.</span>
+  </div>`;
+
+  questions.forEach((q, idx) => {
+    html += `<div class="fep-question-block" id="fepQ${idx}">
+      <div class="fep-q-num">Question ${idx + 1} &nbsp;·&nbsp; ${typeLabel[q.type] || q.type}</div>
+      <div class="fep-q-text">${escHtml(q.text)}</div>`;
+
+    if (q.type === 'tf') {
+      html += `<div class="fep-tf-options">
+        <label class="fep-option" id="fepOpt${idx}_true"  onclick="fepAnswer(${idx},'true',  this)"><input type="radio" name="fep_${idx}" value="true">  <span>True</span></label>
+        <label class="fep-option" id="fepOpt${idx}_false" onclick="fepAnswer(${idx},'false', this)"><input type="radio" name="fep_${idx}" value="false"> <span>False</span></label>
+      </div>`;
+    } else if (q.type === 'mc') {
+      const opts = q.options || [q.answer, 'Option B', 'Option C', 'Option D'];
+      html += opts.map((o, i) => `
+        <label class="fep-option" id="fepOpt${idx}_${i}" onclick="fepAnswer(${idx},${JSON.stringify(o)},this)">
+          <input type="radio" name="fep_${idx}" value="${escHtml(o)}">
+          <span><strong style="color:var(--text-muted);margin-right:0.4rem">${'ABCD'[i]}.</strong>${escHtml(o)}</span>
+        </label>`).join('');
+    } else if (q.type === 'match') {
+      const pairs = q.pairs || [];
+      // Shuffle definitions for this block (but keep stable within render)
+      const defs = [...pairs.map(p => p[1])].sort(() => Math.random() - 0.5);
+      html += `<div class="fep-match-header"><div>Term</div><div>Definition</div></div>`;
+      pairs.forEach((p, pi) => {
+        html += `<div class="fep-match-row">
+          <div class="fep-match-term">${escHtml(p[0])}</div>
+          <select class="fep-match-select" onchange="fepMatchAnswer(${idx},${pi},this.value)">
+            <option value="">— select —</option>
+            ${defs.map(d => `<option value="${escHtml(d)}">${escHtml(d.length > 80 ? d.slice(0,80)+'…' : d)}</option>`).join('')}
+          </select>
+        </div>`;
+      });
+    }
+
+    html += `</div>`;
+  });
+
+  html += `<div style="margin-top:2rem;padding:1.5rem 0;border-top:2px solid var(--border);display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+    <button class="btn btn-primary" style="font-size:0.95rem;padding:0.65rem 2rem" onclick="submitFEP()">Submit Exam →</button>
+    <button class="btn btn-secondary" onclick="renderFEPSetup()">✕ Cancel</button>
+    <span id="fepAnswerCount" style="font-size:0.84rem;color:var(--text-muted)">0 of ${questions.length} answered</span>
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+function fepAnswer(idx, value, labelEl) {
+  fepState.answers[idx] = value;
+  // Highlight selected option
+  const q = fepState.questions[idx];
+  if (q.type === 'tf') {
+    document.getElementById(`fepOpt${idx}_true`).classList.toggle('fep-selected',  value === 'true');
+    document.getElementById(`fepOpt${idx}_false`).classList.toggle('fep-selected', value === 'false');
+  } else {
+    const opts = q.options || [q.answer, 'Option B', 'Option C', 'Option D'];
+    opts.forEach((_, i) => {
+      const el = document.getElementById(`fepOpt${idx}_${i}`);
+      if (el) el.classList.toggle('fep-selected', el.querySelector('input')?.value === value);
+    });
+  }
+  _fepUpdateCount();
+}
+
+function fepMatchAnswer(idx, pairIdx, value) {
+  if (!fepState.answers[idx]) fepState.answers[idx] = {};
+  fepState.answers[idx][pairIdx] = value;
+  _fepUpdateCount();
+}
+
+function _fepUpdateCount() {
+  const { questions, answers } = fepState;
+  let answered = 0;
+  questions.forEach((q, idx) => {
+    const ans = answers[idx];
+    if (q.type === 'match') {
+      const pairs = q.pairs || [];
+      if (ans && typeof ans === 'object' && Object.keys(ans).length === pairs.length && Object.values(ans).every(v => v)) answered++;
+    } else if (ans) answered++;
+  });
+  const el = document.getElementById('fepAnswerCount');
+  if (el) el.textContent = `${answered} of ${questions.length} answered`;
+}
+
+function submitFEP() {
+  const { questions, answers } = fepState;
+
+  let unanswered = 0;
+  questions.forEach((q, idx) => {
+    const ans = answers[idx];
+    if (q.type === 'match') {
+      const pairs = q.pairs || [];
+      if (!ans || typeof ans !== 'object' || Object.keys(ans).length < pairs.length || Object.values(ans).some(v => !v)) unanswered++;
+    } else if (!ans) unanswered++;
+  });
+  if (unanswered > 0 && !confirm(`${unanswered} question${unanswered !== 1 ? 's are' : ' is'} unanswered. Submit anyway?`)) return;
+
+  let score = 0;
+  const results = questions.map((q, idx) => {
+    const userAns = answers[idx];
+
+    if (q.type === 'tf' || q.type === 'mc') {
+      const isCorrect = !!(userAns && userAns.toLowerCase() === (q.answer || '').toLowerCase());
+      trackQuestion(q.id, isCorrect);
+      if (isCorrect) score++;
+      return { correct: isCorrect, userAnswer: userAns || '(not answered)', correctAnswer: q.answer || '' };
+
+    } else if (q.type === 'match') {
+      const pairs = q.pairs || [];
+      let pairsCorrect = 0;
+      const pairResults = pairs.map((p, pi) => {
+        const userDef = userAns && userAns[pi] ? userAns[pi] : null;
+        const isCorrect = !!(userDef && userDef === p[1]);
+        if (isCorrect) pairsCorrect++;
+        // Track individual glossary term stats if this is a glossary block
+        if (q._termIds && q._termIds[pi]) trackQuestion('gloss:' + q._termIds[pi], isCorrect);
+        return { term: p[0], correctDef: p[1], userDef: userDef || '(not answered)', correct: isCorrect };
+      });
+      const blockCorrect = pairsCorrect === pairs.length;
+      trackQuestion(q.id, blockCorrect);
+      if (blockCorrect) score++;
+      return { correct: blockCorrect, isMatch: true, pairResults, pairsCorrect, pairsTotal: pairs.length };
+    }
+    return { correct: false, userAnswer: '(not answered)', correctAnswer: q.answer || '' };
+  });
+
+  save();
+  fepState = { ...fepState, submitted: true, results, score };
+  renderFEPReview();
+}
+
+function renderFEPReview() {
+  const el = document.getElementById('fepContent');
+  const { questions, results, score } = fepState;
+  const total = questions.length;
+  const pct   = Math.round((score / total) * 100);
+  const grade = pct >= 90 ? '🎉 Excellent!' : pct >= 75 ? '👍 Good work!' : pct >= 60 ? '📚 Keep studying!' : '💪 More practice needed!';
+  const typeLabel = { mc: 'Multiple Choice', tf: 'True / False', match: 'Matching' };
+
+  let html = `
+    <div class="results-card" style="margin-bottom:2rem">
+      <div class="results-score">${pct}%</div>
+      <div class="results-label">${score} of ${total} correct &nbsp;·&nbsp; ${grade}</div>
+      <div style="display:flex;gap:1rem;justify-content:center;margin-top:1.25rem;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="renderFEPSetup()">New Exam Setup</button>
+        <button class="btn btn-secondary" onclick="showPage('stats')">View Statistics</button>
+      </div>
+    </div>
+    <div class="fep-review-header">Review — All ${total} Questions</div>`;
+
+  questions.forEach((q, idx) => {
+    const r = results[idx];
+    html += `<div class="fep-review-item ${r.correct ? 'fep-r-correct' : 'fep-r-incorrect'}">
+      <div class="fep-review-indicator ${r.correct ? 'ri-correct' : 'ri-incorrect'}">
+        ${r.correct ? '✓ Correct' : '✗ Incorrect'} &nbsp;·&nbsp; Q${idx + 1} &nbsp;·&nbsp; ${typeLabel[q.type] || q.type}
+      </div>
+      <div class="fep-review-qtext">${escHtml(q.text)}</div>`;
+
+    if (r.isMatch) {
+      html += `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.5rem">${r.pairsCorrect} of ${r.pairsTotal} pairs matched correctly</div>
+        <div>`;
+      r.pairResults.forEach(pr => {
+        html += `<div class="fep-match-review-row">
+          <div style="font-weight:600">${escHtml(pr.term)}</div>
+          <div style="color:${pr.correct ? 'var(--success)' : 'var(--danger)'}">
+            ${pr.correct ? '✓' : '✗'} ${escHtml(pr.userDef)}
+          </div>
+          <div style="color:${pr.correct ? 'transparent' : 'var(--success)'}">
+            ${pr.correct ? '' : '→ ' + escHtml(pr.correctDef)}
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<div class="fep-review-answer">
+        <span style="color:${r.correct ? 'var(--success)' : 'var(--danger)'}">
+          Your answer: <strong>${escHtml(r.userAnswer)}</strong>
+        </span>`;
+      if (!r.correct) html += `&nbsp;&nbsp;<span style="color:var(--success)">Correct: <strong>${escHtml(r.correctAnswer)}</strong></span>`;
+      html += `</div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `<div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:1rem;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="renderFEPSetup()">New Exam Setup</button>
+    <button class="btn btn-secondary" onclick="showPage('stats')">View Statistics</button>
+  </div>`;
+
+  el.innerHTML = html;
+  window.scrollTo(0, 0);
 }
 
 // ============================================================

@@ -6,8 +6,8 @@
 <title>ASL Study Repository</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
 <style>
   :root {
     --bg: #f0f4ff;
@@ -63,7 +63,7 @@
   }
 
   .header-brand h1 {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.35rem;
     font-weight: 400;
     letter-spacing: 0.01em;
@@ -191,7 +191,7 @@
   }
 
   .page-header h2 {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.8rem;
     font-weight: 400;
     color: var(--text);
@@ -221,7 +221,7 @@
   }
 
   .card-title {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.1rem;
     font-weight: 400;
   }
@@ -307,7 +307,7 @@
   }
 
   .stat-card .number {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 2.2rem;
     font-weight: 400;
     color: var(--accent);
@@ -395,7 +395,7 @@
   }
 
   .flashcard-term {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.6rem;
     font-weight: 400;
     line-height: 1.2;
@@ -473,7 +473,7 @@
   .glossary-letter-group { margin-bottom: 2rem; }
 
   .glossary-letter-heading {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.5rem;
     color: var(--accent);
     font-weight: 400;
@@ -754,7 +754,7 @@
   }
 
   .results-score {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 4rem;
     font-weight: 400;
     color: var(--accent);
@@ -851,7 +851,7 @@
   .note-title-input {
     border: none;
     outline: none;
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.3rem;
     font-weight: 400;
     color: var(--text);
@@ -921,7 +921,7 @@
   .data-section { margin-bottom: 2rem; }
 
   .data-section-title {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.1rem;
     font-weight: 400;
     margin-bottom: 1rem;
@@ -969,7 +969,7 @@
   }
 
   .modal-title {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.3rem;
     font-weight: 400;
     margin-bottom: 1.25rem;
@@ -1065,7 +1065,7 @@
     margin-bottom: 0.75rem; padding-bottom: 0.5rem;
     border-bottom: 2px solid var(--accent-light);
   }
-  .search-section-title { font-family: 'Outfit', serif; font-size: 1rem; font-weight: 700; color: var(--accent); }
+  .search-section-title { font-family: 'Plus Jakarta Sans', serif; font-size: 1rem; font-weight: 700; color: var(--accent); }
   .search-count { background: var(--accent); color: white; font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: auto; }
   .search-result {
     background: var(--surface); border: 1px solid var(--border);
@@ -1198,7 +1198,7 @@
     border-bottom: 2px solid var(--accent-light);
   }
   .module-detail-section-title {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.05rem;
     font-weight: 600;
     color: var(--accent);
@@ -1640,7 +1640,7 @@
 
   /* FEP Review */
   .fep-review-header {
-    font-family: 'Outfit', serif;
+    font-family: 'Plus Jakarta Sans', serif;
     font-size: 1.2rem;
     font-weight: 400;
     margin: 1.75rem 0 1.25rem;
@@ -2140,8 +2140,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-05-07 18:26';
-const BUILD_TS = '20260507182628';
+const APP_VERSION = '2026-05-08 06:48';
+const BUILD_TS = '20260508064853';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -2736,10 +2736,12 @@ function renderQuestion() {
     answerHTML = `<div>Complete the statement: <input class="fitb-input" id="fitbInput" placeholder="your answer…" onkeydown="if(event.key==='Enter')checkFITB()"> <button class="btn btn-secondary btn-sm" style="margin-left:0.5rem" onclick="checkFITB()">Check</button></div>`;
   } else if (q.type === 'match') {
     const pairs = q.pairs || [[q.answer,'Answer']];
-    const shuffledRight = [...pairs].sort(() => Math.random()-0.5);
+    // Track original index through shuffle so correctness is index-based,
+    // not string-comparison — avoids onclick breakage from apostrophes/quotes in terms
+    const shuffledRight = pairs.map((p,i)=>({p,origIdx:i})).sort(()=>Math.random()-0.5);
     answerHTML = `<div class="match-grid">
-      <div><div class="match-col-label">Terms</div>${pairs.map((p,i)=>`<div class="match-item" id="ml-${i}" onclick="selectMatchLeft(${i},'${escHtml(p[0])}')">${escHtml(p[0])}</div>`).join('')}</div>
-      <div><div class="match-col-label">Definitions</div>${shuffledRight.map((p,i)=>`<div class="match-item" id="mr-${i}" data-answer="${escHtml(p[0])}" onclick="selectMatchRight(${i},'${escHtml(p[1])}')">${escHtml(p[1])}</div>`).join('')}</div>
+      <div><div class="match-col-label">Terms</div>${pairs.map((p,i)=>`<div class="match-item" id="ml-${i}" data-idx="${i}" onclick="selectMatchLeft(this)">${escHtml(p[0])}</div>`).join('')}</div>
+      <div><div class="match-col-label">Definitions</div>${shuffledRight.map((item,i)=>`<div class="match-item" id="mr-${i}" data-orig="${item.origIdx}" onclick="selectMatchRight(this)">${escHtml(item.p[1])}</div>`).join('')}</div>
     </div>`;
   } else if (q.type === 'sa') {
     answerHTML = `<div><textarea class="sa-textarea" id="saInput" placeholder="Write your answer here…"></textarea><button class="btn btn-secondary btn-sm" style="margin-top:0.75rem" onclick="checkSA()">Submit & See Answer</button></div>`;
@@ -2797,11 +2799,22 @@ function selectMC(i) {
 
 function selectTF(val) {
   const q = quizState.questions[quizState.index];
-  const correct = val.toLowerCase() === (q.answer||'').toLowerCase();
-  document.getElementById('tf-true').classList.add(val==='true'?(correct?'correct':'incorrect'):'');
-  document.getElementById('tf-false').classList.add(val==='false'?(correct?'correct':'incorrect'):'');
-  if (!correct) document.getElementById('tf-' + q.answer.toLowerCase())?.classList.add('correct');
-  document.querySelectorAll('.tf-btn').forEach(b => b.onclick=null);
+  // Normalize to string — answer may be stored as boolean or string
+  const ansStr  = String(q.answer || '').toLowerCase();
+  const correct = val.toLowerCase() === ansStr;
+  const trueBtn  = document.getElementById('tf-true');
+  const falseBtn = document.getElementById('tf-false');
+  // Disable both immediately so rapid clicks don't double-fire
+  if (trueBtn)  trueBtn.onclick  = null;
+  if (falseBtn) falseBtn.onclick = null;
+  // Style the clicked button
+  if (val === 'true'  && trueBtn)  trueBtn.classList.add(correct  ? 'correct' : 'incorrect');
+  if (val === 'false' && falseBtn) falseBtn.classList.add(correct ? 'correct' : 'incorrect');
+  // If wrong, reveal the correct button
+  if (!correct) {
+    const correctBtn = document.getElementById('tf-' + ansStr);
+    if (correctBtn) correctBtn.classList.add('correct');
+  }
   showFeedback(correct, q.answer);
 }
 
@@ -2815,36 +2828,37 @@ function checkFITB() {
   showFeedback(correct, q.answer);
 }
 
-function selectMatchLeft(i, term) {
+function selectMatchLeft(el) {
+  const i = parseInt(el.dataset.idx);
+  const q = quizState.questions[quizState.index];
+  const term = (q.pairs || [])[i]?.[0];
+  if (term === undefined) return;
   quizState.matchSelected = { index: i, term };
-  document.querySelectorAll('.match-item[id^="ml-"]').forEach(el => el.classList.remove('selected'));
-  const el = document.getElementById('ml-' + i);
-  if (el && !el.classList.contains('matched')) el.classList.add('selected');
+  document.querySelectorAll('.match-item[id^="ml-"]').forEach(b => b.classList.remove('selected'));
+  if (!el.classList.contains('matched')) el.classList.add('selected');
 }
 
-function selectMatchRight(i, def) {
+function selectMatchRight(el) {
   if (!quizState.matchSelected) return;
-  const { index: li, term } = quizState.matchSelected;
+  const origIdx = parseInt(el.dataset.orig);
+  const { index: li } = quizState.matchSelected;
   const leftEl = document.getElementById('ml-' + li);
-  const rightEl = document.getElementById('mr-' + i);
-  const q = quizState.questions[quizState.index];
-  const pairs = q.pairs || [];
-  const correctDef = pairs.find(p => p[0] === term)?.[1];
-  const correct = def === correctDef;
+  const correct = origIdx === li;
   if (correct) {
-    leftEl?.classList.replace('selected','matched');
-    rightEl?.classList.add('matched');
+    leftEl?.classList.replace('selected', 'matched');
+    el.classList.add('matched');
     quizState.matchSelected = null;
     const matched = document.querySelectorAll('.match-item.matched').length / 2;
-    if (matched >= pairs.length) {
+    const q = quizState.questions[quizState.index];
+    if (matched >= (q.pairs || []).length) {
       quizState.score++;
       showFeedback(true, '');
       document.getElementById('feedbackBox').innerHTML = '✓ All pairs matched correctly!';
     }
   } else {
     leftEl?.classList.remove('selected');
-    rightEl?.classList.add('incorrect');
-    setTimeout(() => rightEl?.classList.remove('incorrect'), 600);
+    el.classList.add('incorrect');
+    setTimeout(() => el.classList.remove('incorrect'), 600);
     quizState.matchSelected = null;
   }
 }

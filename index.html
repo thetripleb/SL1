@@ -2140,8 +2140,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-05-08 06:48';
-const BUILD_TS = '20260508064853';
+const APP_VERSION = '2026-05-09 21:12';
+const BUILD_TS = '20260509211217';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -2714,7 +2714,7 @@ function startQuiz() {
   let pool = db.questions.filter(q => (mod==='all' || q.module===mod) && types.includes(q.type));
   if (!pool.length) return alert('No questions match your filters.');
   const selected = weightedSelectQuestions(pool, Math.min(count, pool.length));
-  quizState = { questions: selected, index: 0, answers: [], score: 0, matchSelected: null };
+  quizState = { questions: selected, index: 0, answers: [], score: 0, matchSelected: null, matchWrong: new Set() };
   renderQuestion();
 }
 
@@ -2723,6 +2723,7 @@ function renderQuestion() {
   const { questions, index } = quizState;
   if (index >= questions.length) { renderResults(); return; }
   const q = questions[index];
+  if (q.type === 'match') quizState.matchWrong = new Set();
   const prog = ((index / questions.length) * 100).toFixed(0);
   const typeLabels = { mc:'Multiple Choice', tf:'True / False', fitb:'Fill in the Blank', match:'Matching', sa:'Short Answer' };
 
@@ -2736,12 +2737,10 @@ function renderQuestion() {
     answerHTML = `<div>Complete the statement: <input class="fitb-input" id="fitbInput" placeholder="your answer…" onkeydown="if(event.key==='Enter')checkFITB()"> <button class="btn btn-secondary btn-sm" style="margin-left:0.5rem" onclick="checkFITB()">Check</button></div>`;
   } else if (q.type === 'match') {
     const pairs = q.pairs || [[q.answer,'Answer']];
-    // Track original index through shuffle so correctness is index-based,
-    // not string-comparison — avoids onclick breakage from apostrophes/quotes in terms
-    const shuffledRight = pairs.map((p,i)=>({p,origIdx:i})).sort(()=>Math.random()-0.5);
+    const shuffledRight = [...pairs].sort(() => Math.random()-0.5);
     answerHTML = `<div class="match-grid">
-      <div><div class="match-col-label">Terms</div>${pairs.map((p,i)=>`<div class="match-item" id="ml-${i}" data-idx="${i}" onclick="selectMatchLeft(this)">${escHtml(p[0])}</div>`).join('')}</div>
-      <div><div class="match-col-label">Definitions</div>${shuffledRight.map((item,i)=>`<div class="match-item" id="mr-${i}" data-orig="${item.origIdx}" onclick="selectMatchRight(this)">${escHtml(item.p[1])}</div>`).join('')}</div>
+      <div><div class="match-col-label">Terms</div>${pairs.map((p,i)=>`<div class="match-item" id="ml-${i}" onclick="selectMatchLeft(${i},'${escHtml(p[0])}')">${escHtml(p[0])}</div>`).join('')}</div>
+      <div><div class="match-col-label">Definitions</div>${shuffledRight.map((p,i)=>`<div class="match-item" id="mr-${i}" data-answer="${escHtml(p[0])}" onclick="selectMatchRight(${i},'${escHtml(p[1])}')">${escHtml(p[1])}</div>`).join('')}</div>
     </div>`;
   } else if (q.type === 'sa') {
     answerHTML = `<div><textarea class="sa-textarea" id="saInput" placeholder="Write your answer here…"></textarea><button class="btn btn-secondary btn-sm" style="margin-top:0.75rem" onclick="checkSA()">Submit & See Answer</button></div>`;
@@ -2799,22 +2798,11 @@ function selectMC(i) {
 
 function selectTF(val) {
   const q = quizState.questions[quizState.index];
-  // Normalize to string — answer may be stored as boolean or string
-  const ansStr  = String(q.answer || '').toLowerCase();
-  const correct = val.toLowerCase() === ansStr;
-  const trueBtn  = document.getElementById('tf-true');
-  const falseBtn = document.getElementById('tf-false');
-  // Disable both immediately so rapid clicks don't double-fire
-  if (trueBtn)  trueBtn.onclick  = null;
-  if (falseBtn) falseBtn.onclick = null;
-  // Style the clicked button
-  if (val === 'true'  && trueBtn)  trueBtn.classList.add(correct  ? 'correct' : 'incorrect');
-  if (val === 'false' && falseBtn) falseBtn.classList.add(correct ? 'correct' : 'incorrect');
-  // If wrong, reveal the correct button
-  if (!correct) {
-    const correctBtn = document.getElementById('tf-' + ansStr);
-    if (correctBtn) correctBtn.classList.add('correct');
-  }
+  const correct = val.toLowerCase() === (q.answer||'').toLowerCase();
+  document.getElementById('tf-true').classList.add(val==='true'?(correct?'correct':'incorrect'):'');
+  document.getElementById('tf-false').classList.add(val==='false'?(correct?'correct':'incorrect'):'');
+  if (!correct) document.getElementById('tf-' + q.answer.toLowerCase())?.classList.add('correct');
+  document.querySelectorAll('.tf-btn').forEach(b => b.onclick=null);
   showFeedback(correct, q.answer);
 }
 
@@ -2828,37 +2816,49 @@ function checkFITB() {
   showFeedback(correct, q.answer);
 }
 
-function selectMatchLeft(el) {
-  const i = parseInt(el.dataset.idx);
-  const q = quizState.questions[quizState.index];
-  const term = (q.pairs || [])[i]?.[0];
-  if (term === undefined) return;
+function selectMatchLeft(i, term) {
   quizState.matchSelected = { index: i, term };
-  document.querySelectorAll('.match-item[id^="ml-"]').forEach(b => b.classList.remove('selected'));
-  if (!el.classList.contains('matched')) el.classList.add('selected');
+  document.querySelectorAll('.match-item[id^="ml-"]').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('ml-' + i);
+  if (el && !el.classList.contains('matched')) el.classList.add('selected');
 }
 
-function selectMatchRight(el) {
+function selectMatchRight(i, def) {
   if (!quizState.matchSelected) return;
-  const origIdx = parseInt(el.dataset.orig);
-  const { index: li } = quizState.matchSelected;
+  const { index: li, term } = quizState.matchSelected;
   const leftEl = document.getElementById('ml-' + li);
-  const correct = origIdx === li;
+  const rightEl = document.getElementById('mr-' + i);
+  const q = quizState.questions[quizState.index];
+  const pairs = q.pairs || [];
+  const correctDef = pairs.find(p => p[0] === term)?.[1];
+  const correct = def === correctDef;
   if (correct) {
-    leftEl?.classList.replace('selected', 'matched');
-    el.classList.add('matched');
+    leftEl?.classList.replace('selected','matched');
+    rightEl?.classList.add('matched');
     quizState.matchSelected = null;
     const matched = document.querySelectorAll('.match-item.matched').length / 2;
-    const q = quizState.questions[quizState.index];
-    if (matched >= (q.pairs || []).length) {
-      quizState.score++;
-      showFeedback(true, '');
-      document.getElementById('feedbackBox').innerHTML = '✓ All pairs matched correctly!';
+    if (matched >= pairs.length) {
+      // Partial credit: each pair missed on first try costs 1/N points
+      const wrongCount = quizState.matchWrong.size;
+      const pairsCorrect = pairs.length - wrongCount;
+      const pointsEarned = pairsCorrect / pairs.length;
+      quizState.score += pointsEarned;
+      const fb = document.getElementById('feedbackBox');
+      if (pointsEarned >= 1) {
+        fb.className = 'feedback-box show correct';
+        fb.innerHTML = '✓ All pairs matched correctly!';
+      } else {
+        fb.className = 'feedback-box show incorrect';
+        fb.innerHTML = `Partial credit — ${pairsCorrect} of ${pairs.length} pairs correct on first try (+${Math.round(pointsEarned * 100)}%)`;
+      }
+      document.getElementById('nextBtn').style.display = 'inline-flex';
+      trackQuestion(q.id, pairsCorrect === pairs.length); save();
     }
   } else {
+    quizState.matchWrong.add(li);  // track this term had a wrong attempt
     leftEl?.classList.remove('selected');
-    el.classList.add('incorrect');
-    setTimeout(() => el.classList.remove('incorrect'), 600);
+    rightEl?.classList.add('incorrect');
+    setTimeout(() => rightEl?.classList.remove('incorrect'), 600);
     quizState.matchSelected = null;
   }
 }
@@ -2874,11 +2874,12 @@ function nextQuestion() { quizState.index++; renderQuestion(); }
 function renderResults() {
   const { score, questions } = quizState;
   const pct = Math.round((score / questions.length) * 100);
+  const displayScore = parseFloat(score.toFixed(2));
   const grade = pct >= 90 ? '🎉 Excellent!' : pct >= 75 ? '👍 Good Work!' : pct >= 60 ? '📚 Keep Studying!' : '💪 Keep Going!';
   document.getElementById('quizContent').innerHTML = `
     <div class="results-card">
       <div class="results-score">${pct}%</div>
-      <div class="results-label">${score} of ${questions.length} correct · ${grade}</div>
+      <div class="results-label">${displayScore} of ${questions.length} correct · ${grade}</div>
       <div style="display:flex;gap:1rem;justify-content:center">
         <button class="btn btn-primary" onclick="startQuiz()">Retake Quiz</button>
         <button class="btn btn-secondary" onclick="renderQuizSetup()">New Quiz Setup</button>
@@ -4048,9 +4049,10 @@ function submitFEP() {
         return { term: p[0], correctDef: p[1], userDef: userDef || '(not answered)', correct: isCorrect };
       });
       const blockCorrect = pairsCorrect === pairs.length;
+      const pointsEarned = pairsCorrect / pairs.length;  // partial credit
       trackQuestion(q.id, blockCorrect);
-      if (blockCorrect) score++;
-      return { correct: blockCorrect, isMatch: true, pairResults, pairsCorrect, pairsTotal: pairs.length };
+      score += pointsEarned;
+      return { correct: blockCorrect, isMatch: true, pairResults, pairsCorrect, pairsTotal: pairs.length, pointsEarned };
     }
     return { correct: false, userAnswer: '(not answered)', correctAnswer: q.answer || '' };
   });
@@ -4065,13 +4067,14 @@ function renderFEPReview() {
   const { questions, results, score } = fepState;
   const total = questions.length;
   const pct   = Math.round((score / total) * 100);
+  const displayScore = parseFloat(score.toFixed(2));
   const grade = pct >= 90 ? '🎉 Excellent!' : pct >= 75 ? '👍 Good work!' : pct >= 60 ? '📚 Keep studying!' : '💪 More practice needed!';
   const typeLabel = { mc: 'Multiple Choice', tf: 'True / False', match: 'Matching' };
 
   let html = `
     <div class="results-card" style="margin-bottom:2rem">
       <div class="results-score">${pct}%</div>
-      <div class="results-label">${score} of ${total} correct &nbsp;·&nbsp; ${grade}</div>
+      <div class="results-label">${displayScore} of ${total} correct &nbsp;·&nbsp; ${grade}</div>
       <div style="display:flex;gap:1rem;justify-content:center;margin-top:1.25rem;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="renderFEPSetup()">New Exam Setup</button>
         <button class="btn btn-secondary" onclick="showPage('stats')">View Statistics</button>

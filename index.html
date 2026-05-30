@@ -1763,7 +1763,7 @@
         Manage Data
       </div>
     </div>
-    <div class="nav-version" id="appVersionBadge">v2026-05-30 10:35</div>
+    <div class="nav-version" id="appVersionBadge">v2026-05-10 17:05</div>
   </nav>
 
   <main>
@@ -2141,8 +2141,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-05-30 10:35';
-const BUILD_TS = '2026-05-30 11:54';
+const APP_VERSION = '{{APP_VERSION}}';
+const BUILD_TS = '2026-05-30 12:27';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -2277,66 +2277,127 @@ async function pushToGitHub() {
   syncPending = false;
 }
 
-// ── Load: try GitHub first, fall back to localStorage cache ─────────────────
+// ── Structured sync event log (persisted, ring buffer) ──────────────────────
+const SYNC_LOG_KEY = 'sl1_repo_synclog';
+let _syncLog = [];
+try { _syncLog = JSON.parse(localStorage.getItem(SYNC_LOG_KEY) || '[]'); } catch(e) { _syncLog = []; }
+
+function logSync(level, code, msg, detail) {
+  const entry = { t: new Date().toISOString(), level, code, msg,
+                  detail: detail ? String(detail).slice(0, 500) : '' };
+  _syncLog.push(entry);
+  if (_syncLog.length > 50) _syncLog = _syncLog.slice(-50);
+  try { localStorage.setItem(SYNC_LOG_KEY, JSON.stringify(_syncLog)); } catch(e) {}
+  const line = `[${entry.t}] ${level.toUpperCase()} ${code}: ${msg}${detail ? ' — ' + detail : ''}`;
+  (level === 'error' ? console.error : console.log)('SYNC', line);
+  return entry;
+}
+
+// Map a failure class to a concrete remediation step
+function remediationFor(code, status) {
+  switch (code) {
+    case 'OFFLINE':    return 'You appear to be offline. Reconnect, then click \u21BA to retry. Local cache (if any) is shown meanwhile.';
+    case 'NOT_FOUND':  return `Data file sl1_data.json not found in the repo (HTTP ${status||404}). On the device that HAS your data, go to Manage \u2192 GitHub \u2192 "Push Local Data Now" to create it.`;
+    case 'RATE_LIMIT': return 'GitHub rate-limited this device (HTTP 403). Wait ~10 min and click \u21BA, or add a PAT under Manage \u2192 GitHub to raise the limit.';
+    case 'AUTH':       return 'GitHub rejected the token (HTTP 401/403). PAT is missing, expired, or lacks "Contents: Read and write". Re-create a fine-grained PAT and re-enter it under Manage \u2192 GitHub.';
+    case 'PARSE':      return 'Data file downloaded but is not valid JSON (may be mid-write or corrupted). Click \u21BA to retry; if it persists, restore a backup via Manage \u2192 Restore.';
+    default:           return `Could not reach GitHub${status ? ' (HTTP ' + status + ')' : ''}. Showing local cache if available. Click \u21BA to retry; verify Manage \u2192 GitHub settings.`;
+  }
+}
+
+// View the sync log (newest first)
+function showSyncLog() {
+  if (!_syncLog.length) { alert('No sync events logged yet.'); return; }
+  const lines = _syncLog.slice().reverse().map(e =>
+    `[${e.t}] ${e.level.toUpperCase()} ${e.code}\n  ${e.msg}${e.detail ? '\n  ' + e.detail : ''}`
+  ).join('\n\n');
+  alert('GitHub Sync Log (newest first)\n\n' + lines);
+}
+
+// ── Public (no-auth) read: data file is same-origin next to index.html ──────
+async function fetchPublicData() {
+  const url = new URL('sl1_data.json', location.href).href + '?t=' + Date.now();
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) { const e = new Error('HTTP ' + res.status); e.status = res.status; throw e; }
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch (e) { const pe = new Error('Invalid JSON'); pe.code = 'PARSE'; throw pe; }
+}
+
+// ── Authenticated read (authoring device): freshest + gives write SHA ───────
+async function loadFromGitHubAuth() {
+  const { username, repo, pat } = ghSettings;
+  const url = `https://api.github.com/repos/${username}/${repo}/contents/sl1_data.json`;
+  const res = await fetch(url, {
+    headers: { Authorization: `token ${pat}`, Accept: 'application/vnd.github.v3+json' },
+    cache: 'no-store'
+  });
+  if (res.status === 404) {                       // file not created yet → seed from local
+    logSync('info', 'FIRST_SYNC', 'Remote data file missing; pushing local copy');
+    await pushToGitHub();
+    return db;
+  }
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try { const j = await res.json(); detail = `${res.status}: ${j.message || ''}`; } catch(_) {}
+    const e = new Error(detail); e.status = res.status; throw e;
+  }
+  const data = await res.json();
+  lastSavedSha = data.sha;
+  let jsonText;
+  if (data.content && data.content.trim()) {
+    // Normal path: file is under 1MB, content is inline base64
+    jsonText = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+  } else if (data.download_url) {
+    // Large file path: >1MB (e.g. SL1), GitHub omits content — fetch raw directly
+    const raw = await fetch(data.download_url, { cache: 'no-store' });
+    if (!raw.ok) { const e = new Error('download_url ' + raw.status); e.status = raw.status; throw e; }
+    jsonText = await raw.text();
+  } else {
+    throw new Error('Empty content and no download_url');
+  }
+  try { return JSON.parse(jsonText); }
+  catch (e) { const pe = new Error('Invalid JSON'); pe.code = 'PARSE'; throw pe; }
+}
+
+// ── Load: GitHub by default, fall back to local cache only on failure ───────
 async function load() {
   loadGhSettings();
-  // Always load from localStorage first so UI is instant
+
+  // 1. Seed UI instantly from local cache (may be empty on a new device)
+  let haveLocal = false;
   try {
     const d = localStorage.getItem('sl1_repo');
-    if (d) db = normalizeDb(JSON.parse(d));
+    if (d) { db = normalizeDb(JSON.parse(d)); haveLocal = true; }
   } catch(e) {}
 
-  if (!ghConfigured()) {
-    setSyncStatus('local');
-    return;
-  }
+  // 2. Pick remote source: authoring device (PAT) → authenticated; everyone else → public
+  const usingAuth = ghConfigured();
+  setSyncStatus('saving', usingAuth ? 'Loading…' : 'Loading from GitHub…');
 
-  // Then try to fetch from GitHub to get any changes from other devices
-  setSyncStatus('saving', 'Loading…');
-  const { username, repo, pat, branch } = ghSettings;
-  const b = branch || 'main';
-  const url = `https://api.github.com/repos/${username}/${repo}/contents/sl1_data.json`;
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `token ${pat}`, Accept: 'application/vnd.github.v3+json' },
-      cache: 'no-store'
-    });
-    if (res.ok) {
-      const data = await res.json();
-      lastSavedSha = data.sha;
-
-      let jsonText;
-      if (data.content && data.content.trim()) {
-        // Normal path: file is under 1MB, content is inline base64
-        jsonText = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
-      } else if (data.download_url) {
-        // Large file path: >1MB, GitHub omits content — fetch raw directly
-        console.warn('Data file >1MB — fetching via download_url');
-        const raw = await fetch(data.download_url, { cache: 'no-store' });
-        if (!raw.ok) throw new Error(`download_url fetch failed: ${raw.status}`);
-        jsonText = await raw.text();
-      } else {
-        throw new Error('GitHub returned empty content and no download_url');
-      }
-
-      const remote = JSON.parse(jsonText);
-      db = normalizeDb(remote);
-      try { localStorage.setItem('sl1_repo', JSON.stringify(db)); } catch(e) {}
-      _lastSyncError = null;
-      setSyncStatus('saved', 'Loaded from GitHub');
-      setTimeout(() => setSyncStatus('idle'), 3000);
-    } else if (res.status === 404) {
-      setSyncStatus('saving', 'First sync…');
-      await pushToGitHub();
-    } else {
-      let errMsg = `HTTP ${res.status}`;
-      try { const j = await res.json(); errMsg = `${res.status}: ${j.message || JSON.stringify(j)}`; } catch(_) {}
-      setSyncStatus('error', `Load failed (${res.status}) ↺`, errMsg);
-    }
+    const remote = usingAuth ? await loadFromGitHubAuth() : await fetchPublicData();
+    db = normalizeDb(remote);
+    try { localStorage.setItem('sl1_repo', JSON.stringify(db)); } catch(e) {}
+    _lastSyncError = null;
+    logSync('info', 'LOADED', usingAuth ? 'Loaded from GitHub (authenticated)' : 'Loaded from GitHub Pages');
+    setSyncStatus('saved', 'Loaded from GitHub');
+    setTimeout(() => setSyncStatus('idle'), 3000);
+    return;
   } catch(e) {
-    _lastSyncError = e.message || String(e);
-    console.warn('GitHub load failed:', _lastSyncError);
-    setSyncStatus('error', 'Load failed — click ↺', 'Load error: ' + _lastSyncError);
+    // 3. Classify failure → log → surface remediation → keep local cache
+    const status = e.status;
+    let code = e.code || 'UNKNOWN';
+    if (!navigator.onLine)       code = 'OFFLINE';
+    else if (status === 404)     code = 'NOT_FOUND';
+    else if (status === 401)     code = 'AUTH';
+    else if (status === 403)     code = usingAuth ? 'AUTH' : 'RATE_LIMIT';
+    const fix = remediationFor(code, status);
+    _lastSyncError = `${code}: ${e.message || e}`;
+    logSync('error', code, 'GitHub load failed', `${e.message || e} | fix: ${fix}`);
+    setSyncStatus('error',
+      haveLocal ? 'Using local cache — GitHub unreachable \u21BA' : 'No data — GitHub unreachable \u21BA',
+      fix);
   }
 }
 
@@ -2385,6 +2446,7 @@ function renderGhSettings() {
     </div>
     <div class="gh-actions">
       <button class="btn btn-primary" onclick="saveGhSettingsFromUI()">💾 Save & Connect</button>
+      <button class="btn" onclick="showSyncLog()" style="background:var(--surface-2)">🪵 View Sync Log</button>
       ${configured ? `<button class="btn" onclick="testGhConnection()" style="background:var(--surface-2)">🔍 Test Connection</button>
       <button class="btn" onclick="forcePushToGitHub()" style="background:var(--surface-2)">⬆ Push Local Data Now</button>
       <button class="btn" onclick="disconnectGitHub()" style="background:#fff0f0;color:var(--danger);border-color:#f5c6c6">Disconnect</button>` : ''}
@@ -2799,12 +2861,11 @@ function selectMC(i) {
 
 function selectTF(val) {
   const q = quizState.questions[quizState.index];
-  const answer = (q.answer || '').toLowerCase();
-  const correct = val.toLowerCase() === answer;
-  document.querySelectorAll('.tf-btn').forEach(b => b.onclick = null);
-  const sel = document.getElementById('tf-' + val.toLowerCase());
-  if (sel) sel.classList.add(correct ? 'correct' : 'incorrect');
-  if (!correct) document.getElementById('tf-' + answer)?.classList.add('correct');
+  const correct = val.toLowerCase() === (q.answer||'').toLowerCase();
+  document.getElementById('tf-true').classList.add(val==='true'?(correct?'correct':'incorrect'):'');
+  document.getElementById('tf-false').classList.add(val==='false'?(correct?'correct':'incorrect'):'');
+  if (!correct) document.getElementById('tf-' + q.answer.toLowerCase())?.classList.add('correct');
+  document.querySelectorAll('.tf-btn').forEach(b => b.onclick=null);
   showFeedback(correct, q.answer);
 }
 

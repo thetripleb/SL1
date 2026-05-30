@@ -1763,7 +1763,7 @@
         Manage Data
       </div>
     </div>
-    <div class="nav-version" id="appVersionBadge">v2026-05-10 17:05</div>
+    <div class="nav-version" id="appVersionBadge">v2026-05-30 10:35</div>
   </nav>
 
   <main>
@@ -2141,8 +2141,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-05-10 17:05';
-const BUILD_TS = '2026-05-30 11:44';
+const APP_VERSION = '2026-05-30 10:35';
+const BUILD_TS = '2026-05-30 11:54';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -2799,11 +2799,12 @@ function selectMC(i) {
 
 function selectTF(val) {
   const q = quizState.questions[quizState.index];
-  const correct = val.toLowerCase() === (q.answer||'').toLowerCase();
-  document.getElementById('tf-true').classList.add(val==='true'?(correct?'correct':'incorrect'):'');
-  document.getElementById('tf-false').classList.add(val==='false'?(correct?'correct':'incorrect'):'');
-  if (!correct) document.getElementById('tf-' + q.answer.toLowerCase())?.classList.add('correct');
-  document.querySelectorAll('.tf-btn').forEach(b => b.onclick=null);
+  const answer = (q.answer || '').toLowerCase();
+  const correct = val.toLowerCase() === answer;
+  document.querySelectorAll('.tf-btn').forEach(b => b.onclick = null);
+  const sel = document.getElementById('tf-' + val.toLowerCase());
+  if (sel) sel.classList.add(correct ? 'correct' : 'incorrect');
+  if (!correct) document.getElementById('tf-' + answer)?.classList.add('correct');
   showFeedback(correct, q.answer);
 }
 

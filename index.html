@@ -2141,8 +2141,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '{{APP_VERSION}}';
-const BUILD_TS = '2026-05-30 12:27';
+const APP_VERSION = '2026-05-30 16:24';
+const BUILD_TS = '2026-05-30 16:24:30';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -2301,6 +2301,7 @@ function remediationFor(code, status) {
     case 'RATE_LIMIT': return 'GitHub rate-limited this device (HTTP 403). Wait ~10 min and click \u21BA, or add a PAT under Manage \u2192 GitHub to raise the limit.';
     case 'AUTH':       return 'GitHub rejected the token (HTTP 401/403). PAT is missing, expired, or lacks "Contents: Read and write". Re-create a fine-grained PAT and re-enter it under Manage \u2192 GitHub.';
     case 'PARSE':      return 'Data file downloaded but is not valid JSON (may be mid-write or corrupted). Click \u21BA to retry; if it persists, restore a backup via Manage \u2192 Restore.';
+    case 'NO_REMOTE':  return 'This page is not running on GitHub Pages (it\u2019s a preview or a local file). Open it at its live URL \u2014 https://<user>.github.io/<repo>/ \u2014 to load data from GitHub. (Saving still needs a PAT under Manage \u2192 GitHub.)';
     default:           return `Could not reach GitHub${status ? ' (HTTP ' + status + ')' : ''}. Showing local cache if available. Click \u21BA to retry; verify Manage \u2192 GitHub settings.`;
   }
 }
@@ -2316,7 +2317,20 @@ function showSyncLog() {
 
 // ── Public (no-auth) read: data file is same-origin next to index.html ──────
 async function fetchPublicData() {
-  const url = new URL('sl1_data.json', location.href).href + '?t=' + Date.now();
+  // Only meaningful when served over http(s) — i.e. the live GitHub Pages site.
+  // In a sandboxed preview (about:srcdoc) or a local file:// open there is no
+  // remote to read, and new URL() would throw — treat that as NO_REMOTE.
+  if (!/^https?:$/.test(location.protocol)) {
+    const e = new Error('Page not served over http(s) — protocol "' + location.protocol + '"');
+    e.code = 'NO_REMOTE'; throw e;
+  }
+  let url;
+  try {
+    url = new URL('sl1_data.json', location.href).href + '?t=' + Date.now();
+  } catch (err) {
+    const e = new Error('Could not build data URL from base "' + location.href + '"');
+    e.code = 'NO_REMOTE'; throw e;
+  }
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) { const e = new Error('HTTP ' + res.status); e.status = res.status; throw e; }
   const text = await res.text();
@@ -2393,6 +2407,15 @@ async function load() {
     else if (status === 401)     code = 'AUTH';
     else if (status === 403)     code = usingAuth ? 'AUTH' : 'RATE_LIMIT';
     const fix = remediationFor(code, status);
+
+    // NO_REMOTE = running in a preview / local file, not a real failure.
+    if (code === 'NO_REMOTE') {
+      _lastSyncError = null;
+      logSync('info', 'NO_REMOTE', 'Remote skipped (not on GitHub Pages)', e.message || e);
+      setSyncStatus('local', haveLocal ? 'Local data (preview)' : 'Preview — no GitHub data', fix);
+      return;
+    }
+
     _lastSyncError = `${code}: ${e.message || e}`;
     logSync('error', code, 'GitHub load failed', `${e.message || e} | fix: ${fix}`);
     setSyncStatus('error',

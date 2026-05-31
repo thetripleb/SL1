@@ -2141,8 +2141,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-05-30 16:24';
-const BUILD_TS = '2026-05-30 16:24:30';
+const APP_VERSION = '2026-05-30 17:38';
+const BUILD_TS = '2026-05-30 17:38:20';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -2857,7 +2857,7 @@ function showFeedback(correct, correctAns) {
   document.getElementById('nextBtn').style.display = 'inline-flex';
   if (correct) quizState.score++;
   const q = quizState.questions[quizState.index];
-  if (q) { trackQuestion(q.id, correct); save(); }
+  if (q) recordQuizStat(q.id, correct);
 }
 
 function showNeutralFeedback(ans) {
@@ -2867,7 +2867,7 @@ function showNeutralFeedback(ans) {
   document.getElementById('nextBtn').style.display = 'inline-flex';
   // SA: count as asked but not graded correct/incorrect
   const q = quizState.questions[quizState.index];
-  if (q) { trackQuestion(q.id, null); save(); }
+  if (q) recordQuizStat(q.id, null);
 }
 
 function selectMC(i) {
@@ -2884,11 +2884,18 @@ function selectMC(i) {
 
 function selectTF(val) {
   const q = quizState.questions[quizState.index];
-  const correct = val.toLowerCase() === (q.answer||'').toLowerCase();
-  document.getElementById('tf-true').classList.add(val==='true'?(correct?'correct':'incorrect'):'');
-  document.getElementById('tf-false').classList.add(val==='false'?(correct?'correct':'incorrect'):'');
-  if (!correct) document.getElementById('tf-' + q.answer.toLowerCase())?.classList.add('correct');
-  document.querySelectorAll('.tf-btn').forEach(b => b.onclick=null);
+  const answer = (q.answer || '').toLowerCase();
+  const choice = val.toLowerCase();
+  const correct = choice === answer;
+  // Mark the button the user chose (never add an empty class token)
+  const chosenBtn = document.getElementById('tf-' + choice);
+  if (chosenBtn) chosenBtn.classList.add(correct ? 'correct' : 'incorrect');
+  // If wrong, also highlight the right answer
+  if (!correct) {
+    const ansBtn = document.getElementById('tf-' + answer);
+    if (ansBtn) ansBtn.classList.add('correct');
+  }
+  document.querySelectorAll('.tf-btn').forEach(b => b.onclick = null);
   showFeedback(correct, q.answer);
 }
 
@@ -2938,7 +2945,7 @@ function selectMatchRight(i, def) {
         fb.innerHTML = `Partial credit — ${pairsCorrect} of ${pairs.length} pairs correct on first try (+${Math.round(pointsEarned * 100)}%)`;
       }
       document.getElementById('nextBtn').style.display = 'inline-flex';
-      trackQuestion(q.id, pairsCorrect === pairs.length); save();
+      recordQuizStat(q.id, pairsCorrect === pairs.length);
     }
   } else {
     quizState.matchWrong.add(li);  // track this term had a wrong attempt
@@ -3792,6 +3799,15 @@ function trackQuestion(id, correct) {
   db.questionStats[id].asked++;
   if (correct === true)  db.questionStats[id].correct++;
   if (correct === false) db.questionStats[id].incorrect++;
+}
+
+// Persist quiz stats only on the authoring device (GitHub PAT configured).
+// On read-only study devices (no PAT) the quiz runs normally but nothing is
+// stored — the session score still works; we just don't record or sync stats.
+function recordQuizStat(id, correct) {
+  if (!ghConfigured()) return;   // study-only device: skip stats, just move on
+  trackQuestion(id, correct);
+  save();
 }
 
 // Weighted random pick without replacement — questions answered more wrong get higher probability

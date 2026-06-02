@@ -2141,8 +2141,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-05-30 17:38';
-const BUILD_TS = '2026-05-30 17:38:20';
+const APP_VERSION = '2026-06-02 12:54';
+const BUILD_TS = '2026-06-02 12:54:52';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -2277,150 +2277,66 @@ async function pushToGitHub() {
   syncPending = false;
 }
 
-// ── Structured sync event log (persisted, ring buffer) ──────────────────────
-const SYNC_LOG_KEY = 'sl1_repo_synclog';
-let _syncLog = [];
-try { _syncLog = JSON.parse(localStorage.getItem(SYNC_LOG_KEY) || '[]'); } catch(e) { _syncLog = []; }
-
-function logSync(level, code, msg, detail) {
-  const entry = { t: new Date().toISOString(), level, code, msg,
-                  detail: detail ? String(detail).slice(0, 500) : '' };
-  _syncLog.push(entry);
-  if (_syncLog.length > 50) _syncLog = _syncLog.slice(-50);
-  try { localStorage.setItem(SYNC_LOG_KEY, JSON.stringify(_syncLog)); } catch(e) {}
-  const line = `[${entry.t}] ${level.toUpperCase()} ${code}: ${msg}${detail ? ' — ' + detail : ''}`;
-  (level === 'error' ? console.error : console.log)('SYNC', line);
-  return entry;
-}
-
-// Map a failure class to a concrete remediation step
-function remediationFor(code, status) {
-  switch (code) {
-    case 'OFFLINE':    return 'You appear to be offline. Reconnect, then click \u21BA to retry. Local cache (if any) is shown meanwhile.';
-    case 'NOT_FOUND':  return `Data file sl1_data.json not found in the repo (HTTP ${status||404}). On the device that HAS your data, go to Manage \u2192 GitHub \u2192 "Push Local Data Now" to create it.`;
-    case 'RATE_LIMIT': return 'GitHub rate-limited this device (HTTP 403). Wait ~10 min and click \u21BA, or add a PAT under Manage \u2192 GitHub to raise the limit.';
-    case 'AUTH':       return 'GitHub rejected the token (HTTP 401/403). PAT is missing, expired, or lacks "Contents: Read and write". Re-create a fine-grained PAT and re-enter it under Manage \u2192 GitHub.';
-    case 'PARSE':      return 'Data file downloaded but is not valid JSON (may be mid-write or corrupted). Click \u21BA to retry; if it persists, restore a backup via Manage \u2192 Restore.';
-    case 'NO_REMOTE':  return 'This page is not running on GitHub Pages (it\u2019s a preview or a local file). Open it at its live URL \u2014 https://<user>.github.io/<repo>/ \u2014 to load data from GitHub. (Saving still needs a PAT under Manage \u2192 GitHub.)';
-    default:           return `Could not reach GitHub${status ? ' (HTTP ' + status + ')' : ''}. Showing local cache if available. Click \u21BA to retry; verify Manage \u2192 GitHub settings.`;
-  }
-}
-
-// View the sync log (newest first)
-function showSyncLog() {
-  if (!_syncLog.length) { alert('No sync events logged yet.'); return; }
-  const lines = _syncLog.slice().reverse().map(e =>
-    `[${e.t}] ${e.level.toUpperCase()} ${e.code}\n  ${e.msg}${e.detail ? '\n  ' + e.detail : ''}`
-  ).join('\n\n');
-  alert('GitHub Sync Log (newest first)\n\n' + lines);
-}
-
-// ── Public (no-auth) read: data file is same-origin next to index.html ──────
-async function fetchPublicData() {
-  // Only meaningful when served over http(s) — i.e. the live GitHub Pages site.
-  // In a sandboxed preview (about:srcdoc) or a local file:// open there is no
-  // remote to read, and new URL() would throw — treat that as NO_REMOTE.
-  if (!/^https?:$/.test(location.protocol)) {
-    const e = new Error('Page not served over http(s) — protocol "' + location.protocol + '"');
-    e.code = 'NO_REMOTE'; throw e;
-  }
-  let url;
-  try {
-    url = new URL('sl1_data.json', location.href).href + '?t=' + Date.now();
-  } catch (err) {
-    const e = new Error('Could not build data URL from base "' + location.href + '"');
-    e.code = 'NO_REMOTE'; throw e;
-  }
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) { const e = new Error('HTTP ' + res.status); e.status = res.status; throw e; }
-  const text = await res.text();
-  try { return JSON.parse(text); }
-  catch (e) { const pe = new Error('Invalid JSON'); pe.code = 'PARSE'; throw pe; }
-}
-
-// ── Authenticated read (authoring device): freshest + gives write SHA ───────
-async function loadFromGitHubAuth() {
-  const { username, repo, pat } = ghSettings;
-  const url = `https://api.github.com/repos/${username}/${repo}/contents/sl1_data.json`;
-  const res = await fetch(url, {
-    headers: { Authorization: `token ${pat}`, Accept: 'application/vnd.github.v3+json' },
-    cache: 'no-store'
-  });
-  if (res.status === 404) {                       // file not created yet → seed from local
-    logSync('info', 'FIRST_SYNC', 'Remote data file missing; pushing local copy');
-    await pushToGitHub();
-    return db;
-  }
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try { const j = await res.json(); detail = `${res.status}: ${j.message || ''}`; } catch(_) {}
-    const e = new Error(detail); e.status = res.status; throw e;
-  }
-  const data = await res.json();
-  lastSavedSha = data.sha;
-  let jsonText;
-  if (data.content && data.content.trim()) {
-    // Normal path: file is under 1MB, content is inline base64
-    jsonText = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
-  } else if (data.download_url) {
-    // Large file path: >1MB (e.g. SL1), GitHub omits content — fetch raw directly
-    const raw = await fetch(data.download_url, { cache: 'no-store' });
-    if (!raw.ok) { const e = new Error('download_url ' + raw.status); e.status = raw.status; throw e; }
-    jsonText = await raw.text();
-  } else {
-    throw new Error('Empty content and no download_url');
-  }
-  try { return JSON.parse(jsonText); }
-  catch (e) { const pe = new Error('Invalid JSON'); pe.code = 'PARSE'; throw pe; }
-}
-
-// ── Load: GitHub by default, fall back to local cache only on failure ───────
+// ── Load: try GitHub first, fall back to localStorage cache ─────────────────
 async function load() {
   loadGhSettings();
-
-  // 1. Seed UI instantly from local cache (may be empty on a new device)
-  let haveLocal = false;
+  // Always load from localStorage first so UI is instant
   try {
     const d = localStorage.getItem('sl1_repo');
-    if (d) { db = normalizeDb(JSON.parse(d)); haveLocal = true; }
+    if (d) db = normalizeDb(JSON.parse(d));
   } catch(e) {}
 
-  // 2. Pick remote source: authoring device (PAT) → authenticated; everyone else → public
-  const usingAuth = ghConfigured();
-  setSyncStatus('saving', usingAuth ? 'Loading…' : 'Loading from GitHub…');
-
-  try {
-    const remote = usingAuth ? await loadFromGitHubAuth() : await fetchPublicData();
-    db = normalizeDb(remote);
-    try { localStorage.setItem('sl1_repo', JSON.stringify(db)); } catch(e) {}
-    _lastSyncError = null;
-    logSync('info', 'LOADED', usingAuth ? 'Loaded from GitHub (authenticated)' : 'Loaded from GitHub Pages');
-    setSyncStatus('saved', 'Loaded from GitHub');
-    setTimeout(() => setSyncStatus('idle'), 3000);
+  if (!ghConfigured()) {
+    setSyncStatus('local');
     return;
-  } catch(e) {
-    // 3. Classify failure → log → surface remediation → keep local cache
-    const status = e.status;
-    let code = e.code || 'UNKNOWN';
-    if (!navigator.onLine)       code = 'OFFLINE';
-    else if (status === 404)     code = 'NOT_FOUND';
-    else if (status === 401)     code = 'AUTH';
-    else if (status === 403)     code = usingAuth ? 'AUTH' : 'RATE_LIMIT';
-    const fix = remediationFor(code, status);
+  }
 
-    // NO_REMOTE = running in a preview / local file, not a real failure.
-    if (code === 'NO_REMOTE') {
+  // Then try to fetch from GitHub to get any changes from other devices
+  setSyncStatus('saving', 'Loading…');
+  const { username, repo, pat, branch } = ghSettings;
+  const b = branch || 'main';
+  const url = `https://api.github.com/repos/${username}/${repo}/contents/sl1_data.json`;
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `token ${pat}`, Accept: 'application/vnd.github.v3+json' },
+      cache: 'no-store'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      lastSavedSha = data.sha;
+
+      let jsonText;
+      if (data.content && data.content.trim()) {
+        // Normal path: file is under 1MB, content is inline base64
+        jsonText = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+      } else if (data.download_url) {
+        // Large file path: >1MB, GitHub omits content — fetch raw directly
+        console.warn('Data file >1MB — fetching via download_url');
+        const raw = await fetch(data.download_url, { cache: 'no-store' });
+        if (!raw.ok) throw new Error(`download_url fetch failed: ${raw.status}`);
+        jsonText = await raw.text();
+      } else {
+        throw new Error('GitHub returned empty content and no download_url');
+      }
+
+      const remote = JSON.parse(jsonText);
+      db = normalizeDb(remote);
+      try { localStorage.setItem('sl1_repo', JSON.stringify(db)); } catch(e) {}
       _lastSyncError = null;
-      logSync('info', 'NO_REMOTE', 'Remote skipped (not on GitHub Pages)', e.message || e);
-      setSyncStatus('local', haveLocal ? 'Local data (preview)' : 'Preview — no GitHub data', fix);
-      return;
+      setSyncStatus('saved', 'Loaded from GitHub');
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    } else if (res.status === 404) {
+      setSyncStatus('saving', 'First sync…');
+      await pushToGitHub();
+    } else {
+      let errMsg = `HTTP ${res.status}`;
+      try { const j = await res.json(); errMsg = `${res.status}: ${j.message || JSON.stringify(j)}`; } catch(_) {}
+      setSyncStatus('error', `Load failed (${res.status}) ↺`, errMsg);
     }
-
-    _lastSyncError = `${code}: ${e.message || e}`;
-    logSync('error', code, 'GitHub load failed', `${e.message || e} | fix: ${fix}`);
-    setSyncStatus('error',
-      haveLocal ? 'Using local cache — GitHub unreachable \u21BA' : 'No data — GitHub unreachable \u21BA',
-      fix);
+  } catch(e) {
+    _lastSyncError = e.message || String(e);
+    console.warn('GitHub load failed:', _lastSyncError);
+    setSyncStatus('error', 'Load failed — click ↺', 'Load error: ' + _lastSyncError);
   }
 }
 
@@ -2469,7 +2385,6 @@ function renderGhSettings() {
     </div>
     <div class="gh-actions">
       <button class="btn btn-primary" onclick="saveGhSettingsFromUI()">💾 Save & Connect</button>
-      <button class="btn" onclick="showSyncLog()" style="background:var(--surface-2)">🪵 View Sync Log</button>
       ${configured ? `<button class="btn" onclick="testGhConnection()" style="background:var(--surface-2)">🔍 Test Connection</button>
       <button class="btn" onclick="forcePushToGitHub()" style="background:var(--surface-2)">⬆ Push Local Data Now</button>
       <button class="btn" onclick="disconnectGitHub()" style="background:#fff0f0;color:var(--danger);border-color:#f5c6c6">Disconnect</button>` : ''}
@@ -2857,7 +2772,7 @@ function showFeedback(correct, correctAns) {
   document.getElementById('nextBtn').style.display = 'inline-flex';
   if (correct) quizState.score++;
   const q = quizState.questions[quizState.index];
-  if (q) recordQuizStat(q.id, correct);
+  if (q) { trackQuestion(q.id, correct); save(); }
 }
 
 function showNeutralFeedback(ans) {
@@ -2867,7 +2782,7 @@ function showNeutralFeedback(ans) {
   document.getElementById('nextBtn').style.display = 'inline-flex';
   // SA: count as asked but not graded correct/incorrect
   const q = quizState.questions[quizState.index];
-  if (q) recordQuizStat(q.id, null);
+  if (q) { trackQuestion(q.id, null); save(); }
 }
 
 function selectMC(i) {
@@ -2884,18 +2799,11 @@ function selectMC(i) {
 
 function selectTF(val) {
   const q = quizState.questions[quizState.index];
-  const answer = (q.answer || '').toLowerCase();
-  const choice = val.toLowerCase();
-  const correct = choice === answer;
-  // Mark the button the user chose (never add an empty class token)
-  const chosenBtn = document.getElementById('tf-' + choice);
-  if (chosenBtn) chosenBtn.classList.add(correct ? 'correct' : 'incorrect');
-  // If wrong, also highlight the right answer
-  if (!correct) {
-    const ansBtn = document.getElementById('tf-' + answer);
-    if (ansBtn) ansBtn.classList.add('correct');
-  }
-  document.querySelectorAll('.tf-btn').forEach(b => b.onclick = null);
+  const correct = val.toLowerCase() === (q.answer||'').toLowerCase();
+  document.getElementById('tf-true').classList.add(val==='true'?(correct?'correct':'incorrect'):'');
+  document.getElementById('tf-false').classList.add(val==='false'?(correct?'correct':'incorrect'):'');
+  if (!correct) document.getElementById('tf-' + q.answer.toLowerCase())?.classList.add('correct');
+  document.querySelectorAll('.tf-btn').forEach(b => b.onclick=null);
   showFeedback(correct, q.answer);
 }
 
@@ -2945,7 +2853,7 @@ function selectMatchRight(i, def) {
         fb.innerHTML = `Partial credit — ${pairsCorrect} of ${pairs.length} pairs correct on first try (+${Math.round(pointsEarned * 100)}%)`;
       }
       document.getElementById('nextBtn').style.display = 'inline-flex';
-      recordQuizStat(q.id, pairsCorrect === pairs.length);
+      trackQuestion(q.id, pairsCorrect === pairs.length); save();
     }
   } else {
     quizState.matchWrong.add(li);  // track this term had a wrong attempt
@@ -3678,11 +3586,36 @@ function runSearch(raw) {
     return;
   }
 
+  // ---- Tokenized, ranked matching (so a typed question finds its answer) ----
+  const STOP = new Set(['a','an','the','of','to','in','on','for','and','or','is','are','was','were','be','as','at','by','it','its','that','this','these','those','what','which','who','whom','whose','when','where','why','how','do','does','did','can','could','would','should','will','about','from','with','into','than','then','if','vs','list','name','describe','explain','define']);
+  const allTokens = q.split(/[^a-z0-9]+/i).filter(Boolean);
+  let tokens = allTokens.filter(t => t.length > 1 && !STOP.has(t));
+  if (!tokens.length) tokens = allTokens;          // query was all stopwords -> use everything
+  const uniqTokens = [...new Set(tokens)];
+  const minNeeded  = Math.max(1, Math.ceil(uniqTokens.length / 2));  // need >= half the words
+
+  // Relevance score for an item; returns 0 if it doesn't clear the match threshold.
+  const scoreItem = (titleStr, bodyStr) => {
+    const title = (titleStr || '').toLowerCase();
+    const hay   = title + ' ' + (bodyStr || '').toLowerCase();
+    let hit = 0;
+    for (const tk of uniqTokens) if (hay.includes(tk)) hit++;
+    if (hit < minNeeded) return 0;
+    let score = hit;
+    if (uniqTokens.length > 1 && hay.includes(q)) score += uniqTokens.length;  // exact-phrase boost
+    for (const tk of uniqTokens) if (title.includes(tk)) score += 0.25;        // title/term field boost
+    return score;
+  };
+
+  // Highlight each query token (longest first to reduce nesting); never inside a tag.
   const hl = (str) => {
     if (!str) return '';
-    const safe = escHtml(String(str));
-    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return safe.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
+    let safe = escHtml(String(str));
+    for (const t of [...uniqTokens].sort((a, b) => b.length - a.length)) {
+      const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      safe = safe.replace(new RegExp(`(${esc})(?![^<]*>)`, 'gi'), '<mark>$1</mark>');
+    }
+    return safe;
   };
 
   // JSON.stringify wraps the query in double-quotes which breaks onclick attributes
@@ -3694,9 +3627,11 @@ function runSearch(raw) {
   let totalHits = 0;
 
   // GLOSSARY
-  const glossHits = db.glossary.filter(t =>
-    t.term.toLowerCase().includes(q) || t.def.toLowerCase().includes(q)
-  );
+  const glossHits = db.glossary
+    .map(t => ({ t, s: scoreItem(t.term, t.def) }))
+    .filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .map(x => x.t);
   if (glossHits.length) {
     totalHits += glossHits.length;
     const items = glossHits.map(t => `
@@ -3713,9 +3648,11 @@ function runSearch(raw) {
   }
 
   // FLASHCARDS
-  const fcHits = db.flashcards.filter(f =>
-    f.front.toLowerCase().includes(q) || f.back.toLowerCase().includes(q)
-  );
+  const fcHits = db.flashcards
+    .map(f => ({ f, s: scoreItem(f.front, f.back) }))
+    .filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .map(x => x.f);
   if (fcHits.length) {
     totalHits += fcHits.length;
     const items = fcHits.map(f => `
@@ -3732,10 +3669,11 @@ function runSearch(raw) {
   }
 
   // QUESTIONS
-  const qHits = db.questions.filter(q2 =>
-    q2.text.toLowerCase().includes(q) || (q2.answer||'').toLowerCase().includes(q) ||
-    (q2.options||[]).some(o => o.toLowerCase().includes(q))
-  );
+  const qHits = db.questions
+    .map(q2 => ({ q2, s: scoreItem(q2.text, (q2.answer || '') + ' ' + (q2.options || []).join(' ')) }))
+    .filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .map(x => x.q2);
   if (qHits.length) {
     totalHits += qHits.length;
     const typeLabels = { mc:'Multiple Choice', tf:'True/False', fitb:'Fill-in', match:'Matching', sa:'Short Answer' };
@@ -3753,9 +3691,11 @@ function runSearch(raw) {
   }
 
   // NOTES
-  const noteHits = db.notes.filter(n =>
-    (n.title||'').toLowerCase().includes(q) || (n.body||'').toLowerCase().includes(q)
-  );
+  const noteHits = db.notes
+    .map(n => ({ n, s: scoreItem(n.title, n.body) }))
+    .filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .map(x => x.n);
   if (noteHits.length) {
     totalHits += noteHits.length;
     const items = noteHits.map(n => `
@@ -3799,15 +3739,6 @@ function trackQuestion(id, correct) {
   db.questionStats[id].asked++;
   if (correct === true)  db.questionStats[id].correct++;
   if (correct === false) db.questionStats[id].incorrect++;
-}
-
-// Persist quiz stats only on the authoring device (GitHub PAT configured).
-// On read-only study devices (no PAT) the quiz runs normally but nothing is
-// stored — the session score still works; we just don't record or sync stats.
-function recordQuizStat(id, correct) {
-  if (!ghConfigured()) return;   // study-only device: skip stats, just move on
-  trackQuestion(id, correct);
-  save();
 }
 
 // Weighted random pick without replacement — questions answered more wrong get higher probability

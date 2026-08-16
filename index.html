@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- v2026-05-10 17:05 -->
+<!-- v2026-08-16 15:53 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1406,6 +1406,48 @@
   #syncErrorBanner strong { display: block; margin-bottom: 4px; color: #ff8888; }
   #syncErrorBanner .close-banner { float: right; cursor: pointer; opacity: 0.6; margin-left: 8px; }
   #syncErrorBanner .close-banner:hover { opacity: 1; }
+
+  /* Import status strip — docks directly under the header, overlays tab content */
+  #importBanner {
+    display: none;               /* toggled to flex in JS */
+    position: fixed;
+    top: 64px;                   /* height of the header */
+    left: 0; right: 0;
+    z-index: 99;                 /* under header (100), over page content */
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: #000;
+    color: #fff;
+    padding: 0.7rem 2rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    line-height: 1.4;
+    border-left: 4px solid #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    animation: importBannerIn 0.22s ease;
+  }
+  @keyframes importBannerIn {
+    from { transform: translateY(-100%); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+  }
+  #importBanner.success { border-left-color: var(--success); }
+  #importBanner.warn    { border-left-color: #e6a417; }
+  #importBanner.error   { border-left-color: var(--danger); }
+  #importBanner .ib-msg { flex: 1; }
+  #importBanner .ib-close {
+    flex-shrink: 0; cursor: pointer; background: none; border: none;
+    color: #fff; opacity: 0.7; font-size: 1rem; line-height: 1; padding: 2px 4px;
+  }
+  #importBanner .ib-close:hover { opacity: 1; }
+  /* Shrinking progress bar signals the auto-dismiss countdown */
+  #importBanner .ib-progress {
+    position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+    background: rgba(255,255,255,0.5); transform-origin: left center;
+    animation: importBannerCountdown linear forwards;
+  }
+  @keyframes importBannerCountdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
   .sync-dot {
     width: 7px; height: 7px;
     border-radius: 50%;
@@ -1711,6 +1753,7 @@
   <div id="syncIndicator" class="sync-indicator idle"><span class="sync-dot"></span><span class="sync-label">GitHub sync</span></div>
 </header>
 
+<div id="importBanner" role="status" aria-live="polite"></div>
 <div id="syncErrorBanner"></div>
 <div class="app">
   <nav class="sidebar">
@@ -2141,8 +2184,8 @@ let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
 let syncPending   = false;
 let isPushing     = false;
-const APP_VERSION = '2026-06-02 12:54';
-const BUILD_TS = '2026-06-02 12:54:52';
+const APP_VERSION = '2026-08-16 16:06';
+const BUILD_TS = '2026-08-16 16:06:48';
 let _searchBackQuery = null;  // tracks query for deep-link back navigation
 let _lastSyncError = null;
 
@@ -2169,6 +2212,31 @@ function showSyncError(msg) {
   b.style.display = 'block';
   clearTimeout(b._timer);
   b._timer = setTimeout(() => { b.style.display = 'none'; }, 20000);
+}
+
+// ── Import status strip ───────────────────────────────────────────────────────
+// type: 'success' | 'warn' (both auto-dismiss) | 'error' (sticky, needs ✕).
+let _importBannerTimer = null;
+function showImportBanner(msg, type = 'success', opts = {}) {
+  const b = document.getElementById('importBanner');
+  if (!b) { if (type === 'error') alert(msg); return; }   // graceful fallback
+  clearTimeout(_importBannerTimer);
+  const sticky = (type === 'error') || opts.sticky === true;
+  const duration = opts.duration || (type === 'warn' ? 6000 : 4000);
+  b.className = type;
+  b.innerHTML = `<span class="ib-msg">${escHtml(msg)}</span>` + (sticky
+    ? `<button class="ib-close" onclick="dismissImportBanner()" aria-label="Dismiss">✕</button>`
+    : `<span class="ib-progress" style="animation-duration:${duration}ms"></span>`);
+  b.style.display = 'flex';
+  if (!sticky) _importBannerTimer = setTimeout(dismissImportBanner, duration);
+}
+function dismissImportBanner() {
+  const b = document.getElementById('importBanner');
+  if (!b) return;
+  clearTimeout(_importBannerTimer);
+  b.style.display = 'none';
+  b.className = '';
+  b.innerHTML = '';
 }
 
 function setSyncStatus(state, msg, detail) {
@@ -3183,7 +3251,7 @@ function readImportFile(file) {
       pendingImport = data;
       showImportPreview(data);
     } catch(err) {
-      alert('Could not read file: ' + err.message + '\n\nMake sure this is a valid .json file from Claude or a repository backup.');
+      showImportBanner('✕ Import failed — could not read file: ' + err.message + '. Make sure this is a valid .json export from Claude or a repository backup.', 'error');
     }
   };
   reader.readAsText(file);
@@ -3378,8 +3446,12 @@ function confirmImport() {
     if (assignPanel) assignPanel.style.display = 'none';
     renderDashboard(); renderManage(); updateBadges();
     checkDataAndShowPrompts();
-    const skipNote = skipped > 0 ? `\n${skipped} duplicate${skipped>1?'s were':' was'} skipped.` : '';
-    alert(`✓ Import complete — ${added} item${added!==1?'s':''} added.${skipNote}`);
+    if (added === 0 && skipped > 0) {
+      showImportBanner(`Nothing new added — all ${skipped} item${skipped>1?'s were':' was'} already in your repository (duplicates skipped).`, 'warn');
+    } else {
+      const skipNote = skipped > 0 ? `, ${skipped} duplicate${skipped>1?'s':''} skipped` : '';
+      showImportBanner(`✓ Import complete — ${added} item${added!==1?'s':''} added${skipNote}.`, 'success');
+    }
     return;
   }
 
@@ -3389,7 +3461,7 @@ function confirmImport() {
   document.getElementById('claudeImportFile').value = '';
   renderDashboard(); renderManage(); updateBadges();
   checkDataAndShowPrompts();
-  alert('✓ Import successful! Your repository has been updated.');
+  showImportBanner('✓ Backup restored — your repository has been replaced.', 'success');
 }
 
 function cancelImport() {
@@ -3586,36 +3658,11 @@ function runSearch(raw) {
     return;
   }
 
-  // ---- Tokenized, ranked matching (so a typed question finds its answer) ----
-  const STOP = new Set(['a','an','the','of','to','in','on','for','and','or','is','are','was','were','be','as','at','by','it','its','that','this','these','those','what','which','who','whom','whose','when','where','why','how','do','does','did','can','could','would','should','will','about','from','with','into','than','then','if','vs','list','name','describe','explain','define']);
-  const allTokens = q.split(/[^a-z0-9]+/i).filter(Boolean);
-  let tokens = allTokens.filter(t => t.length > 1 && !STOP.has(t));
-  if (!tokens.length) tokens = allTokens;          // query was all stopwords -> use everything
-  const uniqTokens = [...new Set(tokens)];
-  const minNeeded  = Math.max(1, Math.ceil(uniqTokens.length / 2));  // need >= half the words
-
-  // Relevance score for an item; returns 0 if it doesn't clear the match threshold.
-  const scoreItem = (titleStr, bodyStr) => {
-    const title = (titleStr || '').toLowerCase();
-    const hay   = title + ' ' + (bodyStr || '').toLowerCase();
-    let hit = 0;
-    for (const tk of uniqTokens) if (hay.includes(tk)) hit++;
-    if (hit < minNeeded) return 0;
-    let score = hit;
-    if (uniqTokens.length > 1 && hay.includes(q)) score += uniqTokens.length;  // exact-phrase boost
-    for (const tk of uniqTokens) if (title.includes(tk)) score += 0.25;        // title/term field boost
-    return score;
-  };
-
-  // Highlight each query token (longest first to reduce nesting); never inside a tag.
   const hl = (str) => {
     if (!str) return '';
-    let safe = escHtml(String(str));
-    for (const t of [...uniqTokens].sort((a, b) => b.length - a.length)) {
-      const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      safe = safe.replace(new RegExp(`(${esc})(?![^<]*>)`, 'gi'), '<mark>$1</mark>');
-    }
-    return safe;
+    const safe = escHtml(String(str));
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return safe.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
   };
 
   // JSON.stringify wraps the query in double-quotes which breaks onclick attributes
@@ -3627,11 +3674,9 @@ function runSearch(raw) {
   let totalHits = 0;
 
   // GLOSSARY
-  const glossHits = db.glossary
-    .map(t => ({ t, s: scoreItem(t.term, t.def) }))
-    .filter(x => x.s > 0)
-    .sort((a, b) => b.s - a.s)
-    .map(x => x.t);
+  const glossHits = db.glossary.filter(t =>
+    t.term.toLowerCase().includes(q) || t.def.toLowerCase().includes(q)
+  );
   if (glossHits.length) {
     totalHits += glossHits.length;
     const items = glossHits.map(t => `
@@ -3648,11 +3693,9 @@ function runSearch(raw) {
   }
 
   // FLASHCARDS
-  const fcHits = db.flashcards
-    .map(f => ({ f, s: scoreItem(f.front, f.back) }))
-    .filter(x => x.s > 0)
-    .sort((a, b) => b.s - a.s)
-    .map(x => x.f);
+  const fcHits = db.flashcards.filter(f =>
+    f.front.toLowerCase().includes(q) || f.back.toLowerCase().includes(q)
+  );
   if (fcHits.length) {
     totalHits += fcHits.length;
     const items = fcHits.map(f => `
@@ -3669,11 +3712,10 @@ function runSearch(raw) {
   }
 
   // QUESTIONS
-  const qHits = db.questions
-    .map(q2 => ({ q2, s: scoreItem(q2.text, (q2.answer || '') + ' ' + (q2.options || []).join(' ')) }))
-    .filter(x => x.s > 0)
-    .sort((a, b) => b.s - a.s)
-    .map(x => x.q2);
+  const qHits = db.questions.filter(q2 =>
+    q2.text.toLowerCase().includes(q) || (q2.answer||'').toLowerCase().includes(q) ||
+    (q2.options||[]).some(o => o.toLowerCase().includes(q))
+  );
   if (qHits.length) {
     totalHits += qHits.length;
     const typeLabels = { mc:'Multiple Choice', tf:'True/False', fitb:'Fill-in', match:'Matching', sa:'Short Answer' };
@@ -3691,11 +3733,9 @@ function runSearch(raw) {
   }
 
   // NOTES
-  const noteHits = db.notes
-    .map(n => ({ n, s: scoreItem(n.title, n.body) }))
-    .filter(x => x.s > 0)
-    .sort((a, b) => b.s - a.s)
-    .map(x => x.n);
+  const noteHits = db.notes.filter(n =>
+    (n.title||'').toLowerCase().includes(q) || (n.body||'').toLowerCase().includes(q)
+  );
   if (noteHits.length) {
     totalHits += noteHits.length;
     const items = noteHits.map(n => `

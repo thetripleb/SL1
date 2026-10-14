@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<!-- v2026-10-14 14:10 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -117,6 +118,17 @@
     height: calc(100vh - 64px);
     overflow-y: auto;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .nav-version {
+    margin-top: auto;
+    padding: 1rem 1.2rem 0.8rem;
+    font-size: 0.7rem;
+    color: var(--text-light);
+    opacity: 0.5;
+    letter-spacing: 0.04em;
+    user-select: none;
   }
 
   .nav-section { margin-bottom: 1.5rem; }
@@ -758,7 +770,7 @@
     display: grid;
     grid-template-columns: 240px 1fr;
     gap: 1.5rem;
-    min-height: 500px;
+    align-items: start;
   }
 
   .notes-sidebar {
@@ -774,9 +786,22 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
   }
+  .notes-sidebar-header:hover { background: var(--surface-2); }
 
   .notes-sidebar-header span { font-weight: 700; font-size: 0.85rem; color: var(--text); }
+
+  .notes-toggle-arrow {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .notes-sidebar.collapsed .notes-toggle-arrow { transform: rotate(-90deg); }
+  .notes-sidebar.collapsed #notesList { display: none; }
 
   .note-list-item {
     padding: 0.75rem 1rem;
@@ -790,6 +815,21 @@
 
   .note-list-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.2rem; }
   .note-list-meta { font-size: 0.72rem; color: var(--text-light); }
+
+  .note-list-snippet {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+  .note-list-snippet mark {
+    background: rgba(82,183,136,0.22);
+    color: var(--text);
+    border-radius: 2px;
+    padding: 0 1px;
+    font-style: normal;
+  }
 
   .note-editor {
     background: var(--surface);
@@ -833,6 +873,49 @@
     flex: 1;
     resize: none;
     min-height: 400px;
+  }
+
+  /* SEARCH DEEP-LINK BACK BUTTON — floats fixed below header, top-right */
+  #glossaryBackBtn,
+  #fcBackBtn,
+  #quizBackBtn,
+  #notesBackBtn {
+    position: fixed;
+    top: 72px;
+    right: 1.75rem;
+    z-index: 99;
+  }
+
+  .search-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1.1rem;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Inter', sans-serif;
+    box-shadow: var(--shadow);
+    white-space: nowrap;
+  }
+  .search-back-btn:hover {
+    border-color: var(--accent-light);
+    color: var(--accent);
+    background: var(--tag-bg);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* GLOSSARY SEARCH HIGHLIGHT */
+  .glossary-entry.search-highlight { animation: gloss-hl 2.5s ease-out forwards; border-radius: 6px; }
+  @keyframes gloss-hl {
+    0%   { background: rgba(82,183,136,0.22); }
+    70%  { background: rgba(82,183,136,0.08); }
+    100% { background: transparent; }
   }
 
   /* MANAGE */
@@ -1100,6 +1183,7 @@
     color: var(--text-muted);
     margin-left: 0.3rem;
   }
+  .btn-primary .bulk-stats { color: inherit; }
 
 
   /* ===== MODULE DETAIL PAGE ===== */
@@ -1308,6 +1392,62 @@
   .sync-indicator.saved   { background: rgba(80,220,120,0.25);  color: #7dffb3; }
   .sync-indicator.error   { background: rgba(255,80,80,0.25);   color: #ff9999; cursor: pointer; }
   .sync-indicator.local   { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.5); }
+  .sync-retry-btn {
+    background: none; border: none; color: inherit; cursor: pointer;
+    font-size: 1rem; padding: 0 0 0 5px; line-height: 1; opacity: 0.85; vertical-align: middle;
+  }
+  .sync-retry-btn:hover { opacity: 1; }
+  #syncErrorBanner {
+    display: none; position: fixed; bottom: 1rem; right: 1rem; z-index: 9999;
+    background: #3b1a1a; color: #ffaaaa; border: 1px solid #ff6666;
+    border-radius: 8px; padding: 10px 14px; font-size: 0.8rem;
+    max-width: 380px; line-height: 1.5; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  #syncErrorBanner strong { display: block; margin-bottom: 4px; color: #ff8888; }
+  #syncErrorBanner .close-banner { float: right; cursor: pointer; opacity: 0.6; margin-left: 8px; }
+  #syncErrorBanner .close-banner:hover { opacity: 1; }
+
+  /* Import status strip — docks directly under the header, overlays tab content */
+  #importBanner {
+    display: none;               /* toggled to flex in JS */
+    position: fixed;
+    top: 64px;                   /* height of the header */
+    left: 0; right: 0;
+    z-index: 99;                 /* under header (100), over page content */
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: #000;
+    color: #fff;
+    padding: 0.7rem 2rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    line-height: 1.4;
+    border-left: 4px solid #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    animation: importBannerIn 0.22s ease;
+  }
+  @keyframes importBannerIn {
+    from { transform: translateY(-100%); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+  }
+  #importBanner.success { border-left-color: var(--success); }
+  #importBanner.warn    { border-left-color: #e6a417; }
+  #importBanner.error   { border-left-color: var(--danger); }
+  #importBanner .ib-msg { flex: 1; }
+  #importBanner .ib-close {
+    flex-shrink: 0; cursor: pointer; background: none; border: none;
+    color: #fff; opacity: 0.7; font-size: 1rem; line-height: 1; padding: 2px 4px;
+  }
+  #importBanner .ib-close:hover { opacity: 1; }
+  /* Shrinking progress bar signals the auto-dismiss countdown */
+  #importBanner .ib-progress {
+    position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+    background: rgba(255,255,255,0.5); transform-origin: left center;
+    animation: importBannerCountdown linear forwards;
+  }
+  @keyframes importBannerCountdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
   .sync-dot {
     width: 7px; height: 7px;
     border-radius: 50%;
@@ -1367,6 +1507,221 @@
   .gh-status-bar.error        { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
   .gh-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
+  /* ===== STATISTICS ===== */
+  .stats-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  @media (max-width: 900px) { .stats-summary-grid { grid-template-columns: repeat(3, 1fr); } }
+
+  .stats-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .stats-controls select {
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.88rem;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    font-family: inherit;
+  }
+
+  .stats-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .stats-table-header {
+    display: grid;
+    grid-template-columns: 3fr 0.65fr 1fr 0.55fr 0.55fr 0.55fr 1.3fr;
+    background: var(--surface-2);
+    padding: 0.65rem 1rem;
+    font-size: 0.69rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .stats-table-row {
+    display: grid;
+    grid-template-columns: 3fr 0.65fr 1fr 0.55fr 0.55fr 0.55fr 1.3fr;
+    padding: 0.7rem 1rem;
+    border-top: 1px solid var(--surface-2);
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.84rem;
+    transition: background 0.12s;
+  }
+  .stats-table-row:hover { background: var(--tag-bg); }
+  .stats-table-row.stats-unseen { opacity: 0.5; }
+  .stats-q-text { color: var(--text); line-height: 1.4; }
+  .stats-num { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; text-align: center; font-weight: 600; }
+  .stats-acc-bar {
+    height: 5px;
+    background: var(--surface-2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 3px;
+    min-width: 50px;
+  }
+  .stats-acc-bar > div { height: 100%; border-radius: 3px; }
+
+  /* ===== FINAL EXAM PREP ===== */
+  .fep-setup { max-width: 500px; }
+
+  .fep-exam-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--tag-bg);
+    border: 1px solid var(--accent-light);
+    border-radius: var(--radius);
+    font-size: 0.88rem;
+    color: var(--tag-text);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .fep-question-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow);
+  }
+  .fep-q-num {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-light);
+    margin-bottom: 0.5rem;
+  }
+  .fep-q-text {
+    font-size: 1.02rem;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 1.25rem;
+    color: var(--text);
+  }
+  .fep-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.13s;
+    font-size: 0.9rem;
+    background: var(--surface);
+    user-select: none;
+  }
+  .fep-option:hover { border-color: var(--accent-light); background: var(--tag-bg); }
+  .fep-option input[type=radio] { accent-color: var(--accent); flex-shrink: 0; }
+  .fep-option.fep-selected { border-color: var(--accent); background: var(--tag-bg); }
+
+  .fep-tf-options { display: flex; gap: 1rem; }
+  .fep-tf-options .fep-option { flex: 1; justify-content: center; font-weight: 700; font-size: 1rem; }
+
+  .fep-match-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    font-size: 0.69rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+    padding: 0 0.25rem;
+  }
+  .fep-match-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 0.45rem;
+  }
+  .fep-match-term {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    padding: 0.4rem 0.25rem;
+    line-height: 1.35;
+  }
+  .fep-match-select {
+    padding: 0.48rem 0.7rem;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.84rem;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    width: 100%;
+    font-family: inherit;
+    transition: border-color 0.13s;
+    cursor: pointer;
+  }
+  .fep-match-select:focus { border-color: var(--accent-light); }
+
+  /* FEP Review */
+  .fep-review-header {
+    font-family: 'Plus Jakarta Sans', serif;
+    font-size: 1.2rem;
+    font-weight: 400;
+    margin: 1.75rem 0 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--text);
+  }
+  .fep-review-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 0.9rem;
+  }
+  .fep-review-item.fep-r-correct { border-left: 4px solid var(--success); background: #f0fdf4; }
+  .fep-review-item.fep-r-incorrect { border-left: 4px solid var(--danger); background: #fef2f2; }
+  .fep-review-indicator {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .fep-review-indicator.ri-correct { color: var(--success); }
+  .fep-review-indicator.ri-incorrect { color: var(--danger); }
+  .fep-review-qtext { font-weight: 600; font-size: 0.92rem; margin-bottom: 0.6rem; line-height: 1.4; color: var(--text); }
+  .fep-review-answer { font-size: 0.86rem; line-height: 1.5; }
+  .fep-match-review-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+    border-top: 1px solid var(--surface-2);
+    font-size: 0.83rem;
+    align-items: start;
+  }
+  .fep-match-review-row:first-child { border-top: none; }
+
 </style>
 </head>
 <body>
@@ -1398,6 +1753,8 @@
   <div id="syncIndicator" class="sync-indicator idle"><span class="sync-dot"></span><span class="sync-label">GitHub sync</span></div>
 </header>
 
+<div id="importBanner" role="status" aria-live="polite"></div>
+<div id="syncErrorBanner"></div>
 <div class="app">
   <nav class="sidebar">
     <div class="nav-section">
@@ -1423,6 +1780,14 @@
         Practice Quiz
         <span class="badge" id="quizBadge">0</span>
       </div>
+      <div class="nav-item" onclick="showPage('stats')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Statistics
+      </div>
+      <div class="nav-item" onclick="showPage('fep')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        Final Exam Prep
+      </div>
       <div class="nav-item" onclick="showPage('glossary')">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         Glossary
@@ -1441,6 +1806,7 @@
         Manage Data
       </div>
     </div>
+    <div class="nav-version" id="appVersionBadge">v2026-10-14 14:10</div>
   </nav>
 
   <main>
@@ -1494,6 +1860,7 @@
     <!-- FLASHCARDS -->
     <div class="page" id="page-flashcards">
       <div class="page-header">
+        <div id="fcBackBtn" style="display:none"><button class="search-back-btn" onclick="returnToSearch()">← Back to Search Results</button></div>
         <h2>Flashcards</h2>
         <p>Click a card to reveal the definition. Use arrow keys or buttons to navigate.</p>
       </div>
@@ -1510,6 +1877,7 @@
     <!-- GLOSSARY -->
     <div class="page" id="page-glossary">
       <div class="page-header">
+        <div id="glossaryBackBtn" style="display:none"><button class="search-back-btn" onclick="returnToSearch()">← Back to Search Results</button></div>
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div><h2>Glossary</h2><p>All terms and definitions, alphabetically organized</p></div>
           <button class="btn btn-primary" onclick="openAddTerm()">+ Add Term</button>
@@ -1532,6 +1900,7 @@
     <!-- QUIZ -->
     <div class="page" id="page-quiz">
       <div class="page-header">
+        <div id="quizBackBtn" style="display:none"><button class="search-back-btn" onclick="returnToSearch()">← Back to Search Results</button></div>
         <h2>Practice Quiz</h2>
         <p>Test your knowledge with mixed question types</p>
       </div>
@@ -1541,14 +1910,18 @@
     <!-- NOTES -->
     <div class="page" id="page-notes">
       <div class="page-header">
+        <div id="notesBackBtn" style="display:none"><button class="search-back-btn" onclick="returnToSearch()">← Back to Search Results</button></div>
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div><h2>Notes</h2><p>Chapter summaries and study notes</p></div>
           <button class="btn btn-primary" onclick="newNote()">+ New Note</button>
         </div>
       </div>
       <div class="notes-container">
-        <div class="notes-sidebar">
-          <div class="notes-sidebar-header"><span>All Notes</span></div>
+        <div class="notes-sidebar" id="notesSidebar">
+          <div class="notes-sidebar-header" onclick="toggleNotesList()">
+            <span id="notesListLabel">All Notes</span>
+            <span class="notes-toggle-arrow">▼</span>
+          </div>
           <div id="notesList"></div>
         </div>
         <div class="note-editor" id="noteEditor">
@@ -1684,6 +2057,28 @@
         </div>
       </div>
     </div>
+
+    <!-- STATISTICS -->
+    <div class="page" id="page-stats">
+      <div class="page-header">
+        <h2>Statistics</h2>
+        <p>Question performance tracking — weighted toward your weak areas</p>
+      </div>
+      <div id="statsContent">
+        <div class="empty-state"><div class="icon">📊</div><p>Start a Practice Quiz or Final Exam Prep to begin tracking question performance.</p></div>
+      </div>
+    </div>
+
+    <!-- FINAL EXAM PREP -->
+    <div class="page" id="page-fep">
+      <div class="page-header">
+        <h2>Final Exam Prep</h2>
+        <p>Full-length practice exam — True/False, Multiple Choice, and Matching</p>
+      </div>
+      <div id="fepContent">
+        <div class="empty-state"><div class="icon">🎓</div><p>Loading…</p></div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -1775,7 +2170,8 @@ let db = {
   glossary: [],
   flashcards: [],
   questions: [],
-  notes: []
+  notes: [],
+  questionStats: {}
 };
 
 const STORAGE_KEY = 'sl1_repo';
@@ -1786,7 +2182,12 @@ const STORAGE_KEY = 'sl1_repo';
 let ghSettings = null;      // { username, repo, pat, branch }
 let saveTimer = null;       // debounce handle
 let lastSavedSha = null;    // SHA of data.json on GitHub (needed for updates)
-let syncPending = false;    // true while a save is in flight
+let syncPending   = false;
+let isPushing     = false;
+const APP_VERSION = ('2026-10-14 14:12'.indexOf('{{') === 0) ? '2026-10-14 14:10' : '2026-10-14 14:12';
+const BUILD_TS = '2026-10-14 14:12:55';
+let _searchBackQuery = null;  // tracks query for deep-link back navigation
+let _lastSyncError = null;
 
 function loadGhSettings() {
   try {
@@ -1804,15 +2205,70 @@ function ghConfigured() {
 }
 
 // ── Sync status indicator in header ─────────────────────────────────────────
-function setSyncStatus(state, msg) {
+function showSyncError(msg) {
+  const b = document.getElementById('syncErrorBanner');
+  if (!b) return;
+  b.innerHTML = `<span class="close-banner" onclick="this.parentElement.style.display='none'">✕</span><strong>⚠ GitHub Sync Error</strong>${msg}`;
+  b.style.display = 'block';
+  clearTimeout(b._timer);
+  b._timer = setTimeout(() => { b.style.display = 'none'; }, 20000);
+}
+
+// ── Import status strip ───────────────────────────────────────────────────────
+// type: 'success' | 'warn' (both auto-dismiss) | 'error' (sticky, needs ✕).
+let _importBannerTimer = null;
+function showImportBanner(msg, type = 'success', opts = {}) {
+  const b = document.getElementById('importBanner');
+  if (!b) { if (type === 'error') alert(msg); return; }   // graceful fallback
+  clearTimeout(_importBannerTimer);
+  const sticky = (type === 'error') || opts.sticky === true;
+  const duration = opts.duration || (type === 'warn' ? 6000 : 4000);
+  b.className = type;
+  b.innerHTML = `<span class="ib-msg">${escHtml(msg)}</span>` + (sticky
+    ? `<button class="ib-close" onclick="dismissImportBanner()" aria-label="Dismiss">✕</button>`
+    : `<span class="ib-progress" style="animation-duration:${duration}ms"></span>`);
+  b.style.display = 'flex';
+  if (!sticky) _importBannerTimer = setTimeout(dismissImportBanner, duration);
+}
+function dismissImportBanner() {
+  const b = document.getElementById('importBanner');
+  if (!b) return;
+  clearTimeout(_importBannerTimer);
+  b.style.display = 'none';
+  b.className = '';
+  b.innerHTML = '';
+}
+
+function setSyncStatus(state, msg, detail) {
   const el = document.getElementById('syncIndicator');
   if (!el) return;
   el.className = 'sync-indicator ' + state;
-  const dot = el.querySelector('.sync-dot');
   const txt = el.querySelector('.sync-label');
-  if (txt) txt.textContent = msg || { idle:'GitHub sync', saving:'Saving…', saved:'Saved', error:'Sync error', local:'Local only' }[state] || msg;
-  if (state === 'error') el.onclick = () => showPage('manage');
-  else el.onclick = null;
+  const labels = { idle:'GitHub sync', saving:'Saving…', saved:'Saved', error:'Sync error', local:'Local only' };
+  if (txt) txt.textContent = msg || labels[state] || state;
+  const oldBtn = el.querySelector('.sync-retry-btn');
+  if (oldBtn) oldBtn.remove();
+  if (state === 'error') {
+    if (detail) showSyncError(detail);
+    const btn = document.createElement('button');
+    btn.className = 'sync-retry-btn';
+    btn.title = detail || 'Click to retry';
+    btn.textContent = '↺';
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      _lastSyncError = null; lastSavedSha = null;
+      await load(); renderDashboard();
+      if (typeof renderManage === 'function') renderManage();
+    };
+    el.appendChild(btn);
+    el.onclick = () => showPage('manage');
+  } else if (state === 'local') {
+    el.onclick = () => showPage('manage');
+  } else {
+    const b = document.getElementById('syncErrorBanner');
+    if (b) b.style.display = 'none';
+    el.onclick = null;
+  }
 }
 
 // ── Save (localStorage cache always; GitHub if configured) ──────────────────
@@ -1829,6 +2285,8 @@ function save() {
 
 async function pushToGitHub() {
   if (!ghConfigured()) return;
+  if (isPushing) { clearTimeout(saveTimer); saveTimer = setTimeout(pushToGitHub, 2000); return; }
+  isPushing = true;
   syncPending = true;
   const { username, repo, pat, branch } = ghSettings;
   const b = branch || 'main';
@@ -1863,17 +2321,27 @@ async function pushToGitHub() {
     if (res.ok) {
       const result = await res.json();
       lastSavedSha = result.content.sha;
+      isPushing = false; syncPending = false;
       setSyncStatus('saved');
       setTimeout(() => setSyncStatus('idle'), 3000);
-    } else {
-      const err = await res.json();
-      console.error('GitHub save failed:', err);
-      setSyncStatus('error', 'Sync error — click to fix');
+      return;
     }
+    let errMsg = `HTTP ${res.status}`;
+    try { const j = await res.json(); errMsg = `${res.status}: ${j.message || JSON.stringify(j)}`; } catch(_) {}
+    console.error('GitHub save failed:', errMsg);
+    if (res.status === 409 || res.status === 422 || res.status === 404) {
+      lastSavedSha = null;
+      isPushing = false; syncPending = false;
+      setSyncStatus('error', `Conflict — auto-retrying…`, errMsg);
+      setTimeout(() => pushToGitHub(), 1500);
+      return;
+    }
+    setSyncStatus('error', `Save failed (${res.status}) — click ↺`, errMsg);
   } catch(e) {
     console.error('GitHub push error:', e);
-    setSyncStatus('error', 'Sync error — click to fix');
+    setSyncStatus('error', 'Network error — click ↺', e.message || String(e));
   }
+  isPushing = false;
   syncPending = false;
 }
 
@@ -1883,7 +2351,7 @@ async function load() {
   // Always load from localStorage first so UI is instant
   try {
     const d = localStorage.getItem('sl1_repo');
-    if (d) db = JSON.parse(d);
+    if (d) db = normalizeDb(JSON.parse(d));
   } catch(e) {}
 
   if (!ghConfigured()) {
@@ -1904,23 +2372,39 @@ async function load() {
     if (res.ok) {
       const data = await res.json();
       lastSavedSha = data.sha;
-      const decoded = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
-      const remote = JSON.parse(decoded);
-      db = remote;
-      // Update localStorage cache with remote version
+
+      let jsonText;
+      if (data.content && data.content.trim()) {
+        // Normal path: file is under 1MB, content is inline base64
+        jsonText = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+      } else if (data.download_url) {
+        // Large file path: >1MB, GitHub omits content — fetch raw directly
+        console.warn('Data file >1MB — fetching via download_url');
+        const raw = await fetch(data.download_url, { cache: 'no-store' });
+        if (!raw.ok) throw new Error(`download_url fetch failed: ${raw.status}`);
+        jsonText = await raw.text();
+      } else {
+        throw new Error('GitHub returned empty content and no download_url');
+      }
+
+      const remote = JSON.parse(jsonText);
+      db = normalizeDb(remote);
       try { localStorage.setItem('sl1_repo', JSON.stringify(db)); } catch(e) {}
+      _lastSyncError = null;
       setSyncStatus('saved', 'Loaded from GitHub');
       setTimeout(() => setSyncStatus('idle'), 3000);
     } else if (res.status === 404) {
-      // File doesn't exist yet — first time, push current data
       setSyncStatus('saving', 'First sync…');
       await pushToGitHub();
     } else {
-      setSyncStatus('error', 'Load error — click to fix');
+      let errMsg = `HTTP ${res.status}`;
+      try { const j = await res.json(); errMsg = `${res.status}: ${j.message || JSON.stringify(j)}`; } catch(_) {}
+      setSyncStatus('error', `Load failed (${res.status}) ↺`, errMsg);
     }
   } catch(e) {
-    console.warn('GitHub load failed, using local cache:', e);
-    setSyncStatus('local', 'Offline — local data');
+    _lastSyncError = e.message || String(e);
+    console.warn('GitHub load failed:', _lastSyncError);
+    setSyncStatus('error', 'Load failed — click ↺', 'Load error: ' + _lastSyncError);
   }
 }
 
@@ -2032,18 +2516,31 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // NAVIGATION
 // ============================================================
 function showPage(name) {
+  if (!showPage._fromDeepLink) {
+    _searchBackQuery = null;
+    ['glossaryBackBtn','fcBackBtn','quizBackBtn','notesBackBtn'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+  }
+  const skipRender = showPage._fromDeepLink;
+  showPage._fromDeepLink = false;
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(i => {
     if (i.getAttribute('onclick') && i.getAttribute('onclick').includes(name)) i.classList.add('active');
   });
-  if (name === 'dashboard') renderDashboard();
-  if (name === 'flashcards') renderFlashcards();
-  if (name === 'glossary') renderGlossary();
-  if (name === 'quiz') renderQuizSetup();
-  if (name === 'notes') renderNotes();
-  if (name === 'manage') renderManage();
+  if (!skipRender) {
+    if (name === 'dashboard') renderDashboard();
+    if (name === 'flashcards') renderFlashcards();
+    if (name === 'glossary') renderGlossary();
+    if (name === 'quiz') renderQuizSetup();
+    if (name === 'notes') renderNotes();
+    if (name === 'manage') renderManage();
+    if (name === 'stats') renderStats();
+    if (name === 'fep')   renderFEPSetup();
+  }
   if (name === 'module') { /* rendered by showModuleDetail */ }
   if (name === 'search') {
     const input = document.getElementById('searchPageInput');
@@ -2062,12 +2559,14 @@ function openAddTerm() { populateModuleSelects(); openModal('modal-term'); }
 function openAddFlashcard() { populateModuleSelects(); openModal('modal-flashcard'); }
 function openAddQuestion() { populateModuleSelects(); updateQuestionForm(); openModal('modal-question'); }
 
+function moduleLabel(m) { return (m && (m.name || m.title || m.id)) || ''; }
 function sortedModuleList() {
   return [...db.modules].sort((a, b) => {
-    const numA = parseInt((a.name.match(/\d+/) || ['0'])[0]);
-    const numB = parseInt((b.name.match(/\d+/) || ['0'])[0]);
+    const la = moduleLabel(a), lb = moduleLabel(b);
+    const numA = parseInt((la.match(/\d+/) || ['0'])[0]);
+    const numB = parseInt((lb.match(/\d+/) || ['0'])[0]);
     if (numA !== numB) return numA - numB;
-    return a.name.localeCompare(b.name);
+    return la.localeCompare(lb);
   });
 }
 function populateModuleSelects() {
@@ -2112,6 +2611,23 @@ function deleteModule(id) {
   });
   db.modules = db.modules.filter(m => m.id !== id);
   save(); renderDashboard(); renderManage(); updateBadges();
+}
+
+function moveModuleContent() {
+  const fromId = document.getElementById('moveFrom')?.value;
+  const toId   = document.getElementById('moveTo')?.value;
+  if (!fromId) { alert('Please select a source module.'); return; }
+  if (!toId)   { alert('Please select a destination module.'); return; }
+  if (fromId === toId) { alert('Source and destination must be different modules.'); return; }
+  const fromName = db.modules.find(m => m.id === fromId)?.name || fromId;
+  const toName   = db.modules.find(m => m.id === toId)?.name   || toId;
+  let total = 0;
+  ['glossary','flashcards','questions','notes'].forEach(key => {
+    db[key].forEach(item => { if (item.module === fromId) { item.module = toId; total++; } });
+  });
+  if (!total) { alert(`"${fromName}" has no content to move.`); return; }
+  save(); renderBulkAssign(); renderDashboard(); updateBadges();
+  alert(`✓ Moved ${total} item(s) from "${fromName}" → "${toName}".`);
 }
 
 // ============================================================
@@ -2163,7 +2679,7 @@ function renderGlossary() {
     <div class="glossary-letter-group" id="letter-${l}">
       <div class="glossary-letter-heading">${l}</div>
       ${groups[l].map(t => `
-        <div class="glossary-entry">
+        <div class="glossary-entry" id="glossary-entry-${t.id}">
           <div class="glossary-term">${t.term}</div>
           <div class="glossary-def">${t.def}</div>
           <div style="display:flex;gap:0.4rem;align-items:center;flex-direction:column">
@@ -2319,8 +2835,8 @@ function startQuiz() {
   if (!types.length) return alert('Select at least one question type.');
   let pool = db.questions.filter(q => (mod==='all' || q.module===mod) && types.includes(q.type));
   if (!pool.length) return alert('No questions match your filters.');
-  pool = pool.sort(() => Math.random()-0.5).slice(0, Math.min(count, pool.length));
-  quizState = { questions: pool, index: 0, answers: [], score: 0, matchSelected: null };
+  const selected = weightedSelectQuestions(pool, Math.min(count, pool.length));
+  quizState = { questions: selected, index: 0, answers: [], score: 0, matchSelected: null, matchWrong: new Set() };
   renderQuestion();
 }
 
@@ -2329,6 +2845,7 @@ function renderQuestion() {
   const { questions, index } = quizState;
   if (index >= questions.length) { renderResults(); return; }
   const q = questions[index];
+  if (q.type === 'match') quizState.matchWrong = new Set();
   const prog = ((index / questions.length) * 100).toFixed(0);
   const typeLabels = { mc:'Multiple Choice', tf:'True / False', fitb:'Fill in the Blank', match:'Matching', sa:'Short Answer' };
 
@@ -2375,6 +2892,8 @@ function showFeedback(correct, correctAns) {
   fb.innerHTML = correct ? '✓ Correct!' : `✗ Incorrect. Correct answer: <strong>${escHtml(correctAns)}</strong>`;
   document.getElementById('nextBtn').style.display = 'inline-flex';
   if (correct) quizState.score++;
+  const q = quizState.questions[quizState.index];
+  if (q) { trackQuestion(q.id, correct); save(); }
 }
 
 function showNeutralFeedback(ans) {
@@ -2382,6 +2901,9 @@ function showNeutralFeedback(ans) {
   fb.className = 'feedback-box show neutral';
   fb.innerHTML = `<strong>Model Answer:</strong> ${escHtml(ans)}`;
   document.getElementById('nextBtn').style.display = 'inline-flex';
+  // SA: count as asked but not graded correct/incorrect
+  const q = quizState.questions[quizState.index];
+  if (q) { trackQuestion(q.id, null); save(); }
 }
 
 function selectMC(i) {
@@ -2438,11 +2960,24 @@ function selectMatchRight(i, def) {
     quizState.matchSelected = null;
     const matched = document.querySelectorAll('.match-item.matched').length / 2;
     if (matched >= pairs.length) {
-      quizState.score++;
-      showFeedback(true, '');
-      document.getElementById('feedbackBox').innerHTML = '✓ All pairs matched correctly!';
+      // Partial credit: each pair missed on first try costs 1/N points
+      const wrongCount = quizState.matchWrong.size;
+      const pairsCorrect = pairs.length - wrongCount;
+      const pointsEarned = pairsCorrect / pairs.length;
+      quizState.score += pointsEarned;
+      const fb = document.getElementById('feedbackBox');
+      if (pointsEarned >= 1) {
+        fb.className = 'feedback-box show correct';
+        fb.innerHTML = '✓ All pairs matched correctly!';
+      } else {
+        fb.className = 'feedback-box show incorrect';
+        fb.innerHTML = `Partial credit — ${pairsCorrect} of ${pairs.length} pairs correct on first try (+${Math.round(pointsEarned * 100)}%)`;
+      }
+      document.getElementById('nextBtn').style.display = 'inline-flex';
+      trackQuestion(q.id, pairsCorrect === pairs.length); save();
     }
   } else {
+    quizState.matchWrong.add(li);  // track this term had a wrong attempt
     leftEl?.classList.remove('selected');
     rightEl?.classList.add('incorrect');
     setTimeout(() => rightEl?.classList.remove('incorrect'), 600);
@@ -2461,11 +2996,12 @@ function nextQuestion() { quizState.index++; renderQuestion(); }
 function renderResults() {
   const { score, questions } = quizState;
   const pct = Math.round((score / questions.length) * 100);
+  const displayScore = parseFloat(score.toFixed(2));
   const grade = pct >= 90 ? '🎉 Excellent!' : pct >= 75 ? '👍 Good Work!' : pct >= 60 ? '📚 Keep Studying!' : '💪 Keep Going!';
   document.getElementById('quizContent').innerHTML = `
     <div class="results-card">
       <div class="results-score">${pct}%</div>
-      <div class="results-label">${score} of ${questions.length} correct · ${grade}</div>
+      <div class="results-label">${displayScore} of ${questions.length} correct · ${grade}</div>
       <div style="display:flex;gap:1rem;justify-content:center">
         <button class="btn btn-primary" onclick="startQuiz()">Retake Quiz</button>
         <button class="btn btn-secondary" onclick="renderQuizSetup()">New Quiz Setup</button>
@@ -2517,15 +3053,36 @@ let currentNoteId = null;
 function renderNotes() {
   populateModuleSelects();
   const list = document.getElementById('notesList');
+  const sq = _searchBackQuery ? _searchBackQuery.trim().toLowerCase() : null;
+  const label = document.getElementById('notesListLabel');
   if (!db.notes.length) {
     list.innerHTML = `<div class="empty-state" style="padding:1.5rem;font-size:0.85rem"><p>No notes yet.</p></div>`;
+    if (label) label.textContent = 'All Notes';
     return;
   }
-  list.innerHTML = db.notes.map(n => `
+  if (label) label.textContent = `All Notes (${db.notes.length})`;
+  list.innerHTML = db.notes.map(n => {
+    let snippet = '';
+    if (sq) {
+      const body = n.body || '';
+      const titleMatch = (n.title||'').toLowerCase().includes(sq);
+      const bodyIdx = body.toLowerCase().indexOf(sq);
+      if (bodyIdx !== -1 && !titleMatch) {
+        const start = Math.max(0, bodyIdx - 40);
+        const end = Math.min(body.length, bodyIdx + sq.length + 90);
+        const raw = body.slice(start, end);
+        const safeQ = sq.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const hl = escHtml(raw).replace(new RegExp(`(${safeQ})`, 'gi'), '<mark>$1</mark>');
+        snippet = `<div class="note-list-snippet">${start > 0 ? '…' : ''}${hl}${end < body.length ? '…' : ''}</div>`;
+      }
+    }
+    return `
     <div class="note-list-item${n.id===currentNoteId?' active':''}" onclick="openNote('${n.id}')">
       <div class="note-list-title">${escHtml(n.title||'Untitled')}</div>
       <div class="note-list-meta">${n.module?getModuleName(n.module)+' · ':''}${new Date(n.updated||n.created).toLocaleDateString()}</div>
-    </div>`).join('');
+      ${snippet}
+    </div>`;
+  }).join('');
   updateBadges();
 }
 
@@ -2545,6 +3102,8 @@ function openNote(id) {
   document.getElementById('noteBodyInput').value = note.body || '';
   document.getElementById('noteModuleSelect').value = note.module || '';
   renderNotes();
+  const sidebar = document.getElementById('notesSidebar');
+  if (sidebar) sidebar.classList.add('collapsed');
 }
 
 function saveNote() {
@@ -2750,10 +3309,33 @@ function readImportFile(file) {
       pendingImport = data;
       showImportPreview(data);
     } catch(err) {
-      alert('Could not read file: ' + err.message + '\n\nMake sure this is a valid .json file from Claude or a repository backup.');
+      showImportBanner('✕ Import failed — could not read file: ' + err.message + '. Make sure this is a valid .json export from Claude or a repository backup.', 'error');
     }
   };
   reader.readAsText(file);
+}
+
+// ── Dedup helpers ─────────────────────────────────────────────────────────────
+function isDupGlossary(t) {
+  const termLc = (t.term||'').toLowerCase().trim();
+  return db.glossary.some(x => x.id === t.id || (x.term||'').toLowerCase().trim() === termLc);
+}
+function isDupFlashcard(f) {
+  const frontLc = (f.front||'').toLowerCase().trim().slice(0,80);
+  return db.flashcards.some(x => x.id === f.id || (x.front||'').toLowerCase().trim().slice(0,80) === frontLc);
+}
+function isDupQuestion(q) {
+  const textLc = (q.text||'').toLowerCase().trim().slice(0,80);
+  return db.questions.some(x => x.id === q.id || (x.text||'').toLowerCase().trim().slice(0,80) === textLc);
+}
+function isDupNote(n) {
+  const titleLc = (n.title||'').toLowerCase().trim();
+  return db.notes.some(x => x.id === n.id || (x.title||'').toLowerCase().trim() === titleLc);
+}
+
+function dedupStats(arr, dupFn) {
+  const dups = arr.filter(dupFn).length;
+  return { total: arr.length, dups, newCount: arr.length - dups };
 }
 
 function showImportPreview(data) {
@@ -2769,47 +3351,97 @@ function showImportPreview(data) {
     return;
   }
 
+  // ── Dedup analysis ──────────────────────────────────────────────────────────
+  const stats = {};
+  if (data.glossary?.length)   stats.glossary   = dedupStats(data.glossary,   isDupGlossary);
+  if (data.flashcards?.length) stats.flashcards = dedupStats(data.flashcards, isDupFlashcard);
+  if (data.questions?.length)  stats.questions  = dedupStats(data.questions,  isDupQuestion);
+  if (data.notes?.length)      stats.notes      = dedupStats(data.notes,      isDupNote);
+
+  const totalNew  = Object.values(stats).reduce((s,v) => s + v.newCount, 0);
+  const totalDups = Object.values(stats).reduce((s,v) => s + v.dups, 0);
+  const totalAll  = Object.values(stats).reduce((s,v) => s + v.total, 0);
+
+  // ── Build sections ──────────────────────────────────────────────────────────
   const sections = [];
-  if (isFullBackup && data.modules?.length) sections.push(previewSection('📁 Modules', data.modules, m => m.name, data.modules.length));
-  if (data.glossary?.length) sections.push(previewSection('📖 Glossary Terms', data.glossary, t => `<strong>${escHtml(t.term)}</strong> — ${escHtml(t.def?.slice(0,80))}${t.def?.length>80?'…':''}`, data.glossary.length));
-  if (data.flashcards?.length) sections.push(previewSection('🃏 Flashcards', data.flashcards, f => escHtml(f.front?.slice(0,80)), data.flashcards.length));
+  if (isFullBackup && data.modules?.length) sections.push(previewSection('📁 Modules', data.modules, m => m.name, data.modules.length, null));
+  if (data.glossary?.length)   sections.push(previewSection('📖 Glossary Terms', data.glossary,   t => `<strong>${escHtml(t.term)}</strong> — ${escHtml(t.def?.slice(0,80))}${t.def?.length>80?'…':''}`, data.glossary.length,   stats.glossary,   isDupGlossary));
+  if (data.flashcards?.length) sections.push(previewSection('🃏 Flashcards',     data.flashcards, f => escHtml(f.front?.slice(0,80)),                                                                                            data.flashcards.length, stats.flashcards, isDupFlashcard));
   if (data.questions?.length) {
     const typeLabels = {mc:'MC',tf:'T/F',fitb:'Fill-in',match:'Match',sa:'Short Answer'};
-    sections.push(previewSection('❓ Quiz Questions', data.questions, q => `<span class="tag neutral">${typeLabels[q.type]||q.type}</span> ${escHtml(q.text?.slice(0,70))}`, data.questions.length));
+    sections.push(previewSection('❓ Quiz Questions', data.questions, q => `<span class="tag neutral">${typeLabels[q.type]||q.type}</span> ${escHtml(q.text?.slice(0,70))}`, data.questions.length, stats.questions, isDupQuestion));
   }
-  if (data.notes?.length) sections.push(previewSection('📝 Notes', data.notes, n => escHtml(n.title||'Untitled'), data.notes.length));
+  if (data.notes?.length) sections.push(previewSection('📝 Notes', data.notes, n => escHtml(n.title||'Untitled'), data.notes.length, stats.notes, isDupNote));
 
   if (!sections.length) { content.innerHTML = `<div style="color:var(--text-muted);font-size:0.9rem">This file appears empty — nothing to import.</div>`; return; }
 
-  // Populate module picker for content imports
+  // ── Summary banner ──────────────────────────────────────────────────────────
+  let modeBadge, summaryBanner;
+  if (isFullBackup) {
+    modeBadge = '<span style="background:#fff3e0;color:#8b4a0e;padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">FULL BACKUP — will REPLACE all data</span>';
+    summaryBanner = '';
+  } else {
+    modeBadge = '<span style="background:var(--tag-bg);color:var(--tag-text);padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">CONTENT IMPORT — will MERGE with existing data</span>';
+    const dupNote = totalDups > 0
+      ? `<span style="color:#8b4a0e"> · <strong>${totalDups}</strong> already exist and will be skipped</span>`
+      : `<span style="color:var(--accent)"> · No duplicates found ✓</span>`;
+    summaryBanner = `<div style="background:var(--surface-2);border-radius:8px;padding:0.75rem 1rem;margin:0.75rem 0;font-size:0.85rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+      <strong>${totalNew}</strong> new items will be added out of ${totalAll} total${dupNote}
+    </div>`;
+  }
+
+  // ── Module + Chapter assignment panel ───────────────────────────────────────
   const assignPanel = document.getElementById('importModuleAssign');
   if (!isFullBackup && assignPanel) {
     const sel = document.getElementById('importModuleSelect');
     sel.innerHTML = '<option value="">— No Module (import as-is) —</option>' +
       sortedModuleList().map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
-    // Pre-select suggested module from meta_import if it matches
+    // Pre-select suggested module from meta_import if present
     const suggested = data.meta_import?.suggested_module_id;
     if (suggested) {
       const match = db.modules.find(m => m.id === suggested || m.name.toLowerCase() === (data.meta_import?.suggested_module||'').toLowerCase());
       if (match) sel.value = match.id;
     }
+    // Pre-fill chapter field from import meta if present
+    const chapterField = document.getElementById('importChapterInput');
+    if (chapterField && data.meta_import?.chapter) chapterField.value = data.meta_import.chapter;
     assignPanel.style.display = 'flex';
   } else if (assignPanel) {
     assignPanel.style.display = 'none';
   }
 
-  const mode = isFullBackup
-    ? '<span style="background:#fff3e0;color:#8b4a0e;padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">FULL BACKUP — will REPLACE all data</span>'
-    : '<span style="background:var(--tag-bg);color:var(--tag-text);padding:3px 8px;border-radius:10px;font-size:0.75rem;font-weight:700">CONTENT IMPORT — will MERGE with existing data</span>';
-
-  content.innerHTML = `<div style="margin-bottom:1rem">${mode}</div>` + sections.join('');
+  content.innerHTML = `<div style="margin-bottom:0.5rem">${modeBadge}</div>${summaryBanner}` + sections.join('');
 }
 
-function previewSection(title, items, labelFn, count) {
-  const preview = items.slice(0, 3).map(item => `<div style="padding:0.4rem 0;font-size:0.85rem;border-bottom:1px solid var(--surface-2)">${labelFn(item)}</div>`).join('');
-  const more = count > 3 ? `<div style="font-size:0.78rem;color:var(--text-light);padding:0.4rem 0">+ ${count - 3} more…</div>` : '';
+function previewSection(title, items, labelFn, count, stats, dupFn) {
+  // Show up to 3 NEW items first, then fall back to any items if all are dups
+  const newItems  = dupFn ? items.filter(x => !dupFn(x)) : items;
+  const showItems = newItems.length ? newItems.slice(0, 3) : items.slice(0, 3);
+  const preview   = showItems.map(item => {
+    const isDup = dupFn ? dupFn(item) : false;
+    return `<div style="padding:0.4rem 0;font-size:0.85rem;border-bottom:1px solid var(--surface-2);
+      ${isDup ? 'opacity:0.45;text-decoration:line-through' : ''}">${labelFn(item)}
+      ${isDup ? '<span style="font-size:0.7rem;color:var(--text-muted);text-decoration:none;margin-left:0.4rem">(duplicate)</span>' : ''}
+    </div>`;
+  }).join('');
+
+  let countLabel;
+  if (stats) {
+    const newBadge = `<span style="background:#d4edda;color:#155724;padding:1px 6px;border-radius:8px;font-size:0.7rem;font-weight:700">${stats.newCount} new</span>`;
+    const dupBadge = stats.dups > 0
+      ? `<span style="background:#f8d7da;color:#721c24;padding:1px 6px;border-radius:8px;font-size:0.7rem;font-weight:700">${stats.dups} dup</span>`
+      : '';
+    countLabel = `${newBadge} ${dupBadge}`;
+  } else {
+    countLabel = `<span style="font-weight:400;color:var(--text-muted)">(${count})</span>`;
+  }
+
+  const more = newItems.length > 3
+    ? `<div style="font-size:0.78rem;color:var(--text-light);padding:0.4rem 0">+ ${newItems.length - 3} more new…</div>`
+    : (newItems.length === 0 && count > 3 ? `<div style="font-size:0.78rem;color:var(--text-muted);padding:0.4rem 0">All ${count} items already exist</div>` : '');
+
   return `<div style="margin-bottom:1rem">
-    <div style="font-weight:700;font-size:0.88rem;margin-bottom:0.4rem">${title} <span style="font-weight:400;color:var(--text-muted)">(${count} items)</span></div>
+    <div style="font-weight:700;font-size:0.88rem;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem">${title} ${countLabel}</div>
     ${preview}${more}
   </div>`;
 }
@@ -2821,21 +3453,64 @@ function confirmImport() {
 
   if (isFullBackup) {
     if (!confirm('This will REPLACE all your current data with the backup. Are you sure?')) return;
-    db = data;
+    db = normalizeDb(data);
   } else {
-    // Get selected target module (if any)
-    const targetMod = document.getElementById('importModuleSelect')?.value || '';
-    // Create module from suggested_module if it was in the JSON and doesn't exist yet
-    if (targetMod === '' && data.meta_import?.suggested_module) {
-      // user chose no module — respect that
-    }
-    const applyMod = (item) => targetMod ? { ...item, module: targetMod } : item;
+    const targetMod     = document.getElementById('importModuleSelect')?.value || '';
+    const targetChapter = (document.getElementById('importChapterInput')?.value || '').trim();
+
+    // Apply module and/or chapter overrides if set
+    const applyAssignment = (item) => {
+      const out = { ...item };
+      if (targetMod)     out.module  = targetMod;
+      if (targetChapter) out.chapter = targetChapter;
+      return out;
+    };
+
+    let added = 0, skipped = 0;
 
     if (data.modules) data.modules.forEach(m => { if (!db.modules.find(x => x.id === m.id)) db.modules.push(m); });
-    if (data.glossary) { data.glossary.forEach(t => { if (!db.glossary.find(x => x.id === t.id)) db.glossary.push(applyMod(t)); }); db.glossary.sort((a,b) => a.term.localeCompare(b.term)); }
-    if (data.flashcards) data.flashcards.forEach(f => { if (!db.flashcards.find(x => x.id === f.id)) db.flashcards.push(applyMod(f)); });
-    if (data.questions) data.questions.forEach(q => { if (!db.questions.find(x => x.id === q.id)) db.questions.push(applyMod(q)); });
-    if (data.notes) data.notes.forEach(n => { if (!db.notes.find(x => x.id === n.id)) db.notes.unshift(applyMod(n)); });
+
+    if (data.glossary) {
+      data.glossary.forEach(t => {
+        if (isDupGlossary(t)) { skipped++; return; }
+        db.glossary.push(applyAssignment(t)); added++;
+      });
+      db.glossary.sort((a,b) => (a.term||'').localeCompare(b.term||''));
+    }
+    if (data.flashcards) {
+      data.flashcards.forEach(f => {
+        if (isDupFlashcard(f)) { skipped++; return; }
+        db.flashcards.push(applyAssignment(f)); added++;
+      });
+    }
+    if (data.questions) {
+      data.questions.forEach(q => {
+        if (isDupQuestion(q)) { skipped++; return; }
+        db.questions.push(applyAssignment(q)); added++;
+      });
+    }
+    if (data.notes) {
+      data.notes.forEach(n => {
+        if (isDupNote(n)) { skipped++; return; }
+        db.notes.unshift(applyAssignment(n)); added++;
+      });
+    }
+
+    save();
+    pendingImport = null;
+    document.getElementById('importPreview').style.display = 'none';
+    document.getElementById('claudeImportFile').value = '';
+    const assignPanel = document.getElementById('importModuleAssign');
+    if (assignPanel) assignPanel.style.display = 'none';
+    renderDashboard(); renderManage(); updateBadges();
+    checkDataAndShowPrompts();
+    if (added === 0 && skipped > 0) {
+      showImportBanner(`Nothing new added — all ${skipped} item${skipped>1?'s were':' was'} already in your repository (duplicates skipped).`, 'warn');
+    } else {
+      const skipNote = skipped > 0 ? `, ${skipped} duplicate${skipped>1?'s':''} skipped` : '';
+      showImportBanner(`✓ Import complete — ${added} item${added!==1?'s':''} added${skipNote}.`, 'success');
+    }
+    return;
   }
 
   save();
@@ -2844,7 +3519,7 @@ function confirmImport() {
   document.getElementById('claudeImportFile').value = '';
   renderDashboard(); renderManage(); updateBadges();
   checkDataAndShowPrompts();
-  alert('✓ Import successful! Your repository has been updated.');
+  showImportBanner('✓ Backup restored — your repository has been replaced.', 'success');
 }
 
 function cancelImport() {
@@ -2934,32 +3609,101 @@ function bulkAssign(section, mode) {
   alert(`✓ Assigned ${count} ${section} to "${modName}".`);
 }
 
-function moveModuleContent() {
-  const fromId = document.getElementById('moveFrom')?.value;
-  const toId   = document.getElementById('moveTo')?.value;
-  if (!fromId) { alert('Please select a source module.'); return; }
-  if (!toId)   { alert('Please select a destination module.'); return; }
-  if (fromId === toId) { alert('Source and destination must be different modules.'); return; }
-  const fromName = db.modules.find(m => m.id === fromId)?.name || fromId;
-  const toName   = db.modules.find(m => m.id === toId)?.name   || toId;
-  let total = 0;
-  ['glossary','flashcards','questions','notes'].forEach(key => {
-    db[key].forEach(item => { if (item.module === fromId) { item.module = toId; total++; } });
-  });
-  if (!total) { alert(`"${fromName}" has no content to move.`); return; }
-  save(); renderBulkAssign(); renderDashboard(); updateBadges();
-  alert(`✓ Moved ${total} item(s) from "${fromName}" → "${toName}".`);
-}
-
 function clearAllData() {
   if (!confirm('Delete ALL data permanently? This cannot be undone.')) return;
-  db = { meta: { ...db.meta, created: db.meta.created }, modules: [], glossary: [], flashcards: [], questions: [], notes: [] };
+  db = { meta: { ...db.meta, created: db.meta.created }, modules: [], glossary: [], flashcards: [], questions: [], notes: [], questionStats: {} };
   save(); renderDashboard(); renderManage(); updateBadges();
   alert('All data cleared.');
 }
 
 // ============================================================
+// ============================================================
+// NOTES SIDEBAR TOGGLE
+// ============================================================
+function toggleNotesList() {
+  const sidebar = document.getElementById('notesSidebar');
+  if (sidebar) sidebar.classList.toggle('collapsed');
+}
+
+// ============================================================
+// SEARCH DEEP-LINK NAVIGATION
+// ============================================================
+function returnToSearch() {
+  const q = _searchBackQuery;
+  _searchBackQuery = null;
+  ['glossaryBackBtn','fcBackBtn','quizBackBtn','notesBackBtn'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  globalSearchHandler(q || '');
+}
+
+function goToGlossaryTerm(id, q) {
+  _searchBackQuery = q;
+  const gs = document.getElementById('glossarySearch');
+  if (gs) gs.value = '';
+  showPage._fromDeepLink = true;
+  showPage('glossary');
+  renderGlossary();
+  const btn = document.getElementById('glossaryBackBtn');
+  if (btn) btn.style.display = 'block';
+  setTimeout(() => {
+    const el = document.getElementById('glossary-entry-' + id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('search-highlight');
+    setTimeout(() => el.classList.remove('search-highlight'), 2500);
+  }, 80);
+}
+
+function goToFlashcard(id, q) {
+  _searchBackQuery = q;
+  showPage._fromDeepLink = true;
+  showPage('flashcards');
+  renderFlashcards();
+  const idx = db.flashcards.findIndex(f => f.id === id);
+  if (idx !== -1) {
+    fcFiltered = [...db.flashcards];
+    document.querySelectorAll('#fcFilterBar .filter-chip').forEach(c =>
+      c.classList.toggle('active', c.dataset.module === 'all')
+    );
+    fcIndex = idx;
+    renderCurrentCard();
+  }
+  const btn = document.getElementById('fcBackBtn');
+  if (btn) btn.style.display = 'block';
+}
+
+function goToQuizQuestion(id, q) {
+  _searchBackQuery = q;
+  showPage._fromDeepLink = true;
+  showPage('quiz');
+  const targetIdx = db.questions.findIndex(q2 => q2.id === id);
+  if (targetIdx === -1) { renderQuizSetup(); return; }
+  quizState = {
+    questions: [...db.questions],
+    index: targetIdx,
+    answers: Array(db.questions.length).fill(null),
+    score: 0,
+    matchSelected: null
+  };
+  renderQuestion();
+  const btn = document.getElementById('quizBackBtn');
+  if (btn) btn.style.display = 'block';
+}
+
+function goToNote(id, q) {
+  _searchBackQuery = q;
+  showPage._fromDeepLink = true;
+  showPage('notes');
+  renderNotes();
+  openNote(id);
+  const btn = document.getElementById('notesBackBtn');
+  if (btn) btn.style.display = 'block';
+}
+
+// ============================================================
 // GLOBAL SEARCH
+// ============================================================
 // ============================================================
 function globalSearchHandler(q) {
   showPage('search');
@@ -2989,6 +3733,11 @@ function runSearch(raw) {
     return safe.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
   };
 
+  // JSON.stringify wraps the query in double-quotes which breaks onclick attributes
+  // (also delimited by double-quotes). &quot; survives HTML parsing and decodes
+  // back to " before the browser executes the JS — so the function call is valid.
+  const safeQ = JSON.stringify(raw).replace(/"/g, '&quot;');
+
   const sections = [];
   let totalHits = 0;
 
@@ -2999,7 +3748,7 @@ function runSearch(raw) {
   if (glossHits.length) {
     totalHits += glossHits.length;
     const items = glossHits.map(t => `
-      <div class="search-result" onclick="showPage('glossary'); document.getElementById('glossarySearch').value=${JSON.stringify(raw)}; renderGlossary();">
+      <div class="search-result" onclick="goToGlossaryTerm('${t.id}', ${safeQ})">
         <div class="search-result-type">📖 Glossary</div>
         <div class="search-result-title">${hl(t.term)}</div>
         <div class="search-result-preview">${hl(t.def)}</div>
@@ -3018,7 +3767,7 @@ function runSearch(raw) {
   if (fcHits.length) {
     totalHits += fcHits.length;
     const items = fcHits.map(f => `
-      <div class="search-result" onclick="showPage('flashcards');">
+      <div class="search-result" onclick="goToFlashcard('${f.id}', ${safeQ})">
         <div class="search-result-type">🃏 Flashcard</div>
         <div class="search-result-title">${hl(f.front)}</div>
         <div class="search-result-preview">${hl(f.back)}</div>
@@ -3039,7 +3788,7 @@ function runSearch(raw) {
     totalHits += qHits.length;
     const typeLabels = { mc:'Multiple Choice', tf:'True/False', fitb:'Fill-in', match:'Matching', sa:'Short Answer' };
     const items = qHits.map(q2 => `
-      <div class="search-result" onclick="showPage('quiz');">
+      <div class="search-result" onclick="goToQuizQuestion('${q2.id}', ${safeQ})">
         <div class="search-result-type">❓ Quiz — ${typeLabels[q2.type]||q2.type}</div>
         <div class="search-result-title">${hl(q2.text)}</div>
         <div class="search-result-preview">Answer: ${hl(q2.answer)}</div>
@@ -3058,7 +3807,7 @@ function runSearch(raw) {
   if (noteHits.length) {
     totalHits += noteHits.length;
     const items = noteHits.map(n => `
-      <div class="search-result" onclick="showPage('notes'); openNote('${n.id}');">
+      <div class="search-result" onclick="goToNote('${n.id}', ${safeQ})">
         <div class="search-result-type">📝 Note</div>
         <div class="search-result-title">${hl(n.title||'Untitled')}</div>
         <div class="search-result-preview">${hl((n.body||'').slice(0,200))}</div>
@@ -3077,6 +3826,445 @@ function runSearch(raw) {
   results.innerHTML = sections.length
     ? sections.join('')
     : `<div class="search-prompt"><div class="icon">🔍</div><p>No results found for "<strong>${escHtml(raw)}</strong>".<br>Try a different term or check your spelling.</p></div>`;
+}
+
+// ============================================================
+// QUESTION STATS & WEIGHTING
+// ============================================================
+function normalizeDb(data) {
+  if (!data.questionStats) data.questionStats = {};
+  if (!data.modules)    data.modules    = [];
+  if (!data.glossary)   data.glossary   = [];
+  if (!data.flashcards) data.flashcards = [];
+  if (!data.questions)  data.questions  = [];
+  if (!data.notes)      data.notes      = [];
+  data.modules.forEach(m => { if (!m.name) m.name = m.title || m.id; });
+  return data;
+}
+
+function trackQuestion(id, correct) {
+  if (!db.questionStats) db.questionStats = {};
+  if (!db.questionStats[id]) db.questionStats[id] = { asked: 0, correct: 0, incorrect: 0 };
+  db.questionStats[id].asked++;
+  if (correct === true)  db.questionStats[id].correct++;
+  if (correct === false) db.questionStats[id].incorrect++;
+}
+
+// Weighted random pick without replacement — questions answered more wrong get higher probability
+function weightedPick(items, n) {
+  if (!items.length || n <= 0) return [];
+  const stats = db.questionStats || {};
+  const pool  = [...items];
+  const picked = [];
+  for (let i = 0; i < Math.min(n, pool.length); i++) {
+    const weights = pool.map(q => {
+      const s = stats[q.id] || { asked: 0, incorrect: 0 };
+      return (s.incorrect + 1) / (s.asked + 1);
+    });
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total, idx = pool.length - 1;
+    for (let j = 0; j < weights.length; j++) { r -= weights[j]; if (r <= 0) { idx = j; break; } }
+    picked.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+  return picked;
+}
+
+// Phase-1: show all unseen questions first; phase-2: weight toward wrong answers
+function weightedSelectQuestions(pool, count) {
+  const stats   = db.questionStats || {};
+  const unseen  = pool.filter(q => !stats[q.id] || stats[q.id].asked === 0);
+  const seen    = pool.filter(q => stats[q.id]  && stats[q.id].asked  > 0);
+  const shuffled = unseen.sort(() => Math.random() - 0.5);
+  if (shuffled.length >= count) return shuffled.slice(0, count);
+  return [...shuffled, ...weightedPick(seen, count - shuffled.length)];
+}
+
+// ============================================================
+// STATISTICS PAGE
+// ============================================================
+function renderStats() {
+  const el = document.getElementById('statsContent');
+  if (!el) return;
+  const stats = db.questionStats || {};
+  const allQs = db.questions;
+
+  if (!allQs.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>No quiz questions yet. Add some questions, then start a quiz or Final Exam Prep to track performance.</p></div>`;
+    return;
+  }
+
+  // Summary totals across ALL questions
+  let totalAsked = 0, totalCorrect = 0, totalIncorrect = 0;
+  Object.values(stats).forEach(s => { totalAsked += s.asked; totalCorrect += s.correct; totalIncorrect += s.incorrect; });
+  const overallAcc  = totalAsked > 0 ? Math.round((totalCorrect / totalAsked) * 100) : null;
+  const seenCount   = allQs.filter(q => stats[q.id]?.asked > 0).length;
+
+  // Module filter
+  const savedMod = document.getElementById('statsModFilter')?.value || 'all';
+  const modOpts  = '<option value="all">All Modules</option>' + sortedModuleList().map(m => `<option value="${m.id}"${m.id===savedMod?' selected':''}>${escHtml(m.name)}</option>`).join('');
+
+  let filtered = savedMod === 'all' ? allQs : allQs.filter(q => q.module === savedMod);
+
+  // Sort by difficulty: most incorrect ratio first, then unseen last
+  filtered = [...filtered].sort((a, b) => {
+    const sa = stats[a.id] || { asked: 0, incorrect: 0 };
+    const sb = stats[b.id] || { asked: 0, incorrect: 0 };
+    if (sa.asked === 0 && sb.asked  > 0) return  1;
+    if (sa.asked  > 0 && sb.asked === 0) return -1;
+    return (sb.incorrect / (sb.asked || 1)) - (sa.incorrect / (sa.asked || 1));
+  });
+
+  const typeLabels = { mc:'MC', tf:'T/F', fitb:'Fill-in', match:'Match', sa:'SA' };
+
+  el.innerHTML = `
+    <div class="stats-summary-grid">
+      <div class="stat-card"><div class="number">${totalAsked}</div><div class="label">Times Answered</div></div>
+      <div class="stat-card"><div class="number">${totalCorrect}</div><div class="label">Correct</div></div>
+      <div class="stat-card"><div class="number">${totalIncorrect}</div><div class="label">Incorrect</div></div>
+      <div class="stat-card"><div class="number">${overallAcc !== null ? overallAcc + '%' : '—'}</div><div class="label">Accuracy</div></div>
+      <div class="stat-card"><div class="number">${seenCount}<span style="font-size:1.1rem;color:var(--text-muted)">/${allQs.length}</span></div><div class="label">Questions Seen</div></div>
+    </div>
+
+    <div class="stats-controls">
+      <select id="statsModFilter" onchange="renderStats()">${modOpts}</select>
+      <button class="btn btn-secondary btn-sm" onclick="resetStats()">🗑 Reset All Stats</button>
+      <span style="font-size:0.8rem;color:var(--text-muted);margin-left:auto">Sorted: most missed first · Unseen questions shown at bottom</span>
+    </div>
+
+    <div class="stats-table-wrap">
+      <div class="stats-table-header">
+        <div>Question</div><div>Type</div><div>Module</div>
+        <div style="text-align:center">Asked</div><div style="text-align:center">✓</div><div style="text-align:center">✗</div>
+        <div>Accuracy</div>
+      </div>
+      ${filtered.map(q => {
+        const s   = stats[q.id] || { asked: 0, correct: 0, incorrect: 0 };
+        const acc = s.asked > 0 ? Math.round((s.correct / s.asked) * 100) : null;
+        const barColor = acc === null ? '#ccc' : acc >= 80 ? 'var(--success)' : acc >= 55 ? '#f39c12' : 'var(--danger)';
+        const modName  = q.module ? escHtml(getModuleName(q.module)) : '—';
+        return `<div class="stats-table-row${s.asked === 0 ? ' stats-unseen' : ''}">
+          <div class="stats-q-text">${escHtml(q.text.slice(0, 90))}${q.text.length > 90 ? '…' : ''}</div>
+          <div><span class="tag neutral">${typeLabels[q.type] || q.type}</span></div>
+          <div style="font-size:0.78rem;color:var(--text-muted)">${modName}</div>
+          <div class="stats-num">${s.asked || '—'}</div>
+          <div class="stats-num" style="color:var(--success)">${s.correct || (s.asked ? 0 : '—')}</div>
+          <div class="stats-num" style="color:var(--danger)">${s.incorrect || (s.asked ? 0 : '—')}</div>
+          <div>
+            ${acc !== null
+              ? `<div class="stats-acc-bar"><div style="width:${acc}%;background:${barColor}"></div></div><span style="font-size:0.76rem;font-weight:700;color:${barColor}">${acc}%</span>`
+              : `<span style="font-size:0.76rem;color:var(--text-light)">Not yet seen</span>`}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function resetStats() {
+  if (!confirm('Reset all question statistics? This cannot be undone.')) return;
+  db.questionStats = {};
+  save();
+  renderStats();
+}
+
+// ============================================================
+// FINAL EXAM PREP
+// ============================================================
+let fepState = { questions: [], answers: {}, submitted: false, results: [], score: 0 };
+
+function renderFEPSetup() {
+  const el = document.getElementById('fepContent');
+  if (!el) return;
+  const hasContent = db.questions.length || db.glossary.length;
+  if (!hasContent) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🎓</div><p>No study content yet. Import course material or add questions and glossary terms first.</p></div>`;
+    return;
+  }
+  const modOpts = '<option value="all">All Modules</option>' + sortedModuleList().map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
+  el.innerHTML = `
+    <div class="fep-setup">
+      <div class="quiz-form-group">
+        <label>Module / Week</label>
+        <select id="fepModFilter">${modOpts}</select>
+      </div>
+      <div class="quiz-form-group">
+        <label>Question Types</label>
+        <div class="quiz-type-grid">
+          <label class="quiz-type-option"><input type="checkbox" value="mc"    checked class="feptypecheck"> Multiple Choice</label>
+          <label class="quiz-type-option"><input type="checkbox" value="tf"    checked class="feptypecheck"> True / False</label>
+          <label class="quiz-type-option"><input type="checkbox" value="match" checked class="feptypecheck"> Matching</label>
+        </div>
+      </div>
+      <div class="quiz-form-group">
+        <label>Number of Questions</label>
+        <input type="number" id="fepCount" value="50" min="5" max="200">
+      </div>
+      <button class="btn btn-primary" onclick="startFEP()">Start Final Exam Prep →</button>
+      <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.75rem;line-height:1.6">
+        Matching includes glossary terms and quiz matching questions.
+        Questions weighted toward topics you've answered incorrectly.
+        All questions seen once before weighting begins.
+      </p>
+    </div>`;
+}
+
+function startFEP() {
+  const mod   = document.getElementById('fepModFilter').value;
+  const count = parseInt(document.getElementById('fepCount').value) || 50;
+  const types = [...document.querySelectorAll('.feptypecheck:checked')].map(c => c.value);
+  if (!types.length) return alert('Select at least one question type.');
+  const qs = buildFEPQuestions(mod, types, count);
+  if (!qs.length) return alert('Not enough content for an exam with those settings. Try "All Modules" or add more questions and glossary terms.');
+  fepState = { questions: qs, answers: {}, submitted: false, results: [], score: 0 };
+  renderFEPExam();
+}
+
+function buildFEPQuestions(moduleId, types, count) {
+  const pool = [];
+
+  // T/F and MC from db.questions
+  if (types.includes('tf') || types.includes('mc')) {
+    db.questions.forEach(q => {
+      if (moduleId !== 'all' && q.module !== moduleId) return;
+      if ((q.type === 'tf' && types.includes('tf')) || (q.type === 'mc' && types.includes('mc'))) {
+        pool.push({ ...q, _fepSrc: 'quiz' });
+      }
+    });
+  }
+
+  // Matching: existing match questions + glossary-based blocks
+  if (types.includes('match')) {
+    db.questions.forEach(q => {
+      if (q.type !== 'match') return;
+      if (moduleId !== 'all' && q.module !== moduleId) return;
+      pool.push({ ...q, _fepSrc: 'quiz' });
+    });
+
+    // Build glossary matching blocks (5 terms per block)
+    let terms = db.glossary.filter(t => moduleId === 'all' || t.module === moduleId);
+    terms = terms.sort(() => Math.random() - 0.5);
+    for (let i = 0; i < terms.length; i += 5) {
+      const block = terms.slice(i, Math.min(i + 5, terms.length));
+      if (block.length < 2) continue;
+      // Stable block ID based on sorted term IDs so weighting persists across sessions
+      const blockId = 'gloss_match_' + block.map(t => t.id).sort().join('_').slice(0, 60);
+      pool.push({
+        id: blockId,
+        type: 'match',
+        text: 'Match each term to its correct definition:',
+        pairs: block.map(t => [t.term, t.def]),
+        _termIds: block.map(t => t.id),
+        _fepSrc: 'glossary',
+        module: block[0].module || ''
+      });
+    }
+  }
+
+  if (!pool.length) return [];
+  return weightedSelectQuestions(pool, Math.min(count, pool.length));
+}
+
+function renderFEPExam() {
+  const el = document.getElementById('fepContent');
+  const { questions } = fepState;
+  const typeLabel = { mc: 'Multiple Choice', tf: 'True / False', match: 'Matching' };
+
+  let html = `<div class="fep-exam-header">
+    <strong>${questions.length} questions</strong>
+    <span>Answer all questions, then click Submit to see your results.</span>
+  </div>`;
+
+  questions.forEach((q, idx) => {
+    html += `<div class="fep-question-block" id="fepQ${idx}">
+      <div class="fep-q-num">Question ${idx + 1} &nbsp;·&nbsp; ${typeLabel[q.type] || q.type}</div>
+      <div class="fep-q-text">${escHtml(q.text)}</div>`;
+
+    if (q.type === 'tf') {
+      html += `<div class="fep-tf-options">
+        <label class="fep-option" id="fepOpt${idx}_true"  onclick="fepAnswer(${idx},'true',  this)"><input type="radio" name="fep_${idx}" value="true">  <span>True</span></label>
+        <label class="fep-option" id="fepOpt${idx}_false" onclick="fepAnswer(${idx},'false', this)"><input type="radio" name="fep_${idx}" value="false"> <span>False</span></label>
+      </div>`;
+    } else if (q.type === 'mc') {
+      const opts = q.options || [q.answer, 'Option B', 'Option C', 'Option D'];
+      html += opts.map((o, i) => `
+        <label class="fep-option" id="fepOpt${idx}_${i}" onclick="fepAnswer(${idx},${JSON.stringify(o)},this)">
+          <input type="radio" name="fep_${idx}" value="${escHtml(o)}">
+          <span><strong style="color:var(--text-muted);margin-right:0.4rem">${'ABCD'[i]}.</strong>${escHtml(o)}</span>
+        </label>`).join('');
+    } else if (q.type === 'match') {
+      const pairs = q.pairs || [];
+      // Shuffle definitions for this block (but keep stable within render)
+      const defs = [...pairs.map(p => p[1])].sort(() => Math.random() - 0.5);
+      html += `<div class="fep-match-header"><div>Term</div><div>Definition</div></div>`;
+      pairs.forEach((p, pi) => {
+        html += `<div class="fep-match-row">
+          <div class="fep-match-term">${escHtml(p[0])}</div>
+          <select class="fep-match-select" onchange="fepMatchAnswer(${idx},${pi},this.value)">
+            <option value="">— select —</option>
+            ${defs.map(d => `<option value="${escHtml(d)}">${escHtml(d.length > 80 ? d.slice(0,80)+'…' : d)}</option>`).join('')}
+          </select>
+        </div>`;
+      });
+    }
+
+    html += `</div>`;
+  });
+
+  html += `<div style="margin-top:2rem;padding:1.5rem 0;border-top:2px solid var(--border);display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+    <button class="btn btn-primary" style="font-size:0.95rem;padding:0.65rem 2rem" onclick="submitFEP()">Submit Exam →</button>
+    <button class="btn btn-secondary" onclick="renderFEPSetup()">✕ Cancel</button>
+    <span id="fepAnswerCount" style="font-size:0.84rem;color:var(--text-muted)">0 of ${questions.length} answered</span>
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+function fepAnswer(idx, value, labelEl) {
+  fepState.answers[idx] = value;
+  // Highlight selected option
+  const q = fepState.questions[idx];
+  if (q.type === 'tf') {
+    document.getElementById(`fepOpt${idx}_true`).classList.toggle('fep-selected',  value === 'true');
+    document.getElementById(`fepOpt${idx}_false`).classList.toggle('fep-selected', value === 'false');
+  } else {
+    const opts = q.options || [q.answer, 'Option B', 'Option C', 'Option D'];
+    opts.forEach((_, i) => {
+      const el = document.getElementById(`fepOpt${idx}_${i}`);
+      if (el) el.classList.toggle('fep-selected', el.querySelector('input')?.value === value);
+    });
+  }
+  _fepUpdateCount();
+}
+
+function fepMatchAnswer(idx, pairIdx, value) {
+  if (!fepState.answers[idx]) fepState.answers[idx] = {};
+  fepState.answers[idx][pairIdx] = value;
+  _fepUpdateCount();
+}
+
+function _fepUpdateCount() {
+  const { questions, answers } = fepState;
+  let answered = 0;
+  questions.forEach((q, idx) => {
+    const ans = answers[idx];
+    if (q.type === 'match') {
+      const pairs = q.pairs || [];
+      if (ans && typeof ans === 'object' && Object.keys(ans).length === pairs.length && Object.values(ans).every(v => v)) answered++;
+    } else if (ans) answered++;
+  });
+  const el = document.getElementById('fepAnswerCount');
+  if (el) el.textContent = `${answered} of ${questions.length} answered`;
+}
+
+function submitFEP() {
+  const { questions, answers } = fepState;
+
+  let unanswered = 0;
+  questions.forEach((q, idx) => {
+    const ans = answers[idx];
+    if (q.type === 'match') {
+      const pairs = q.pairs || [];
+      if (!ans || typeof ans !== 'object' || Object.keys(ans).length < pairs.length || Object.values(ans).some(v => !v)) unanswered++;
+    } else if (!ans) unanswered++;
+  });
+  if (unanswered > 0 && !confirm(`${unanswered} question${unanswered !== 1 ? 's are' : ' is'} unanswered. Submit anyway?`)) return;
+
+  let score = 0;
+  const results = questions.map((q, idx) => {
+    const userAns = answers[idx];
+
+    if (q.type === 'tf' || q.type === 'mc') {
+      const isCorrect = !!(userAns && userAns.toLowerCase() === (q.answer || '').toLowerCase());
+      trackQuestion(q.id, isCorrect);
+      if (isCorrect) score++;
+      return { correct: isCorrect, userAnswer: userAns || '(not answered)', correctAnswer: q.answer || '' };
+
+    } else if (q.type === 'match') {
+      const pairs = q.pairs || [];
+      let pairsCorrect = 0;
+      const pairResults = pairs.map((p, pi) => {
+        const userDef = userAns && userAns[pi] ? userAns[pi] : null;
+        const isCorrect = !!(userDef && userDef === p[1]);
+        if (isCorrect) pairsCorrect++;
+        // Track individual glossary term stats if this is a glossary block
+        if (q._termIds && q._termIds[pi]) trackQuestion('gloss:' + q._termIds[pi], isCorrect);
+        return { term: p[0], correctDef: p[1], userDef: userDef || '(not answered)', correct: isCorrect };
+      });
+      const blockCorrect = pairsCorrect === pairs.length;
+      const pointsEarned = pairsCorrect / pairs.length;  // partial credit
+      trackQuestion(q.id, blockCorrect);
+      score += pointsEarned;
+      return { correct: blockCorrect, isMatch: true, pairResults, pairsCorrect, pairsTotal: pairs.length, pointsEarned };
+    }
+    return { correct: false, userAnswer: '(not answered)', correctAnswer: q.answer || '' };
+  });
+
+  save();
+  fepState = { ...fepState, submitted: true, results, score };
+  renderFEPReview();
+}
+
+function renderFEPReview() {
+  const el = document.getElementById('fepContent');
+  const { questions, results, score } = fepState;
+  const total = questions.length;
+  const pct   = Math.round((score / total) * 100);
+  const displayScore = parseFloat(score.toFixed(2));
+  const grade = pct >= 90 ? '🎉 Excellent!' : pct >= 75 ? '👍 Good work!' : pct >= 60 ? '📚 Keep studying!' : '💪 More practice needed!';
+  const typeLabel = { mc: 'Multiple Choice', tf: 'True / False', match: 'Matching' };
+
+  let html = `
+    <div class="results-card" style="margin-bottom:2rem">
+      <div class="results-score">${pct}%</div>
+      <div class="results-label">${displayScore} of ${total} correct &nbsp;·&nbsp; ${grade}</div>
+      <div style="display:flex;gap:1rem;justify-content:center;margin-top:1.25rem;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="renderFEPSetup()">New Exam Setup</button>
+        <button class="btn btn-secondary" onclick="showPage('stats')">View Statistics</button>
+      </div>
+    </div>
+    <div class="fep-review-header">Review — All ${total} Questions</div>`;
+
+  questions.forEach((q, idx) => {
+    const r = results[idx];
+    html += `<div class="fep-review-item ${r.correct ? 'fep-r-correct' : 'fep-r-incorrect'}">
+      <div class="fep-review-indicator ${r.correct ? 'ri-correct' : 'ri-incorrect'}">
+        ${r.correct ? '✓ Correct' : '✗ Incorrect'} &nbsp;·&nbsp; Q${idx + 1} &nbsp;·&nbsp; ${typeLabel[q.type] || q.type}
+      </div>
+      <div class="fep-review-qtext">${escHtml(q.text)}</div>`;
+
+    if (r.isMatch) {
+      html += `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.5rem">${r.pairsCorrect} of ${r.pairsTotal} pairs matched correctly</div>
+        <div>`;
+      r.pairResults.forEach(pr => {
+        html += `<div class="fep-match-review-row">
+          <div style="font-weight:600">${escHtml(pr.term)}</div>
+          <div style="color:${pr.correct ? 'var(--success)' : 'var(--danger)'}">
+            ${pr.correct ? '✓' : '✗'} ${escHtml(pr.userDef)}
+          </div>
+          <div style="color:${pr.correct ? 'transparent' : 'var(--success)'}">
+            ${pr.correct ? '' : '→ ' + escHtml(pr.correctDef)}
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<div class="fep-review-answer">
+        <span style="color:${r.correct ? 'var(--success)' : 'var(--danger)'}">
+          Your answer: <strong>${escHtml(r.userAnswer)}</strong>
+        </span>`;
+      if (!r.correct) html += `&nbsp;&nbsp;<span style="color:var(--success)">Correct: <strong>${escHtml(r.correctAnswer)}</strong></span>`;
+      html += `</div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `<div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:1rem;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="renderFEPSetup()">New Exam Setup</button>
+    <button class="btn btn-secondary" onclick="showPage('stats')">View Statistics</button>
+  </div>`;
+
+  el.innerHTML = html;
+  window.scrollTo(0, 0);
 }
 
 // ============================================================
@@ -3154,7 +4342,7 @@ function handleRestoreFile(input) {
         alert('This does not appear to be a full repository backup.\n\nUse Manage Data → Import for content-only imports.');
         return;
       }
-      db = data;
+      db = normalizeDb(data);
       save();
       dismissRestore();
       renderDashboard();
@@ -3169,6 +4357,8 @@ function handleRestoreFile(input) {
 }
 
 async function initApp() {
+  const vb = document.getElementById('appVersionBadge');
+  if (vb) vb.textContent = 'v' + APP_VERSION;
   // Render shell immediately so page feels instant
   try {
     renderDashboard();
